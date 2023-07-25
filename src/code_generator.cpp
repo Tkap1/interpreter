@@ -90,31 +90,59 @@ func void generate_statement(s_node* node, int base_register)
 
 		case e_node_for:
 		{
-			auto expr = node->nfor.expr;
+			auto nfor = node->nfor;
+			auto expr = nfor.expr;
 
 			// @Note(tkap, 24/07/2023): Create the loop variable
 			s_var var = zero;
 			var.id = g_id++;
 			g_vars.add(var);
 
-			add_expr({.type = e_expr_immediate_to_var, .a = {.val = var.id}, .b = {.val = 0}});
+			int comparison_index = -1;
+			int jump_index = -1;
 
-			// @Fixme(tkap, 24/07/2023): If we can know the value of the comparand at compile time, then we just place it there.
-			// Otherwise, we need to reference a variable
-			generate_expr(expr, base_register + 1);
-			int comparison_index = add_expr(
-				{.type = e_expr_cmp_var_register, .a = {.val = var.id}, .b = {.val = base_register + 1}}
-			);
+			if(nfor.reverse)
+			{
+				generate_expr(expr, base_register + 1);
+				add_expr({.type = e_expr_register_dec, .a = {.val = base_register + 1}});
+				add_expr({.type = e_expr_register_to_var, .a = {.val = var.id}, .b = {.val = base_register + 1}});
 
-			// @Note(tkap, 24/07/2023): Go to end of loop. We don't yet know to which instruction we have to jump, hence the -1
-			int jump_index = add_expr({.type = e_expr_jump_greater_or_equal, .a = {.val = -1}});
+				comparison_index = add_expr(
+					{.type = e_expr_cmp_var_immediate, .a = {.val = var.id}, .b = {.val = 0}}
+				);
+
+				// @Note(tkap, 24/07/2023): Go to end of loop. We don't yet know to which instruction we have to jump, hence the -1
+				jump_index = add_expr({.type = e_expr_jump_lesser, .a = {.val = -1}});
+			}
+			else
+			{
+				add_expr({.type = e_expr_immediate_to_var, .a = {.val = var.id}, .b = {.val = 0}});
+
+				// @TODO(tkap, 24/07/2023): If we can know the value of the comparand at compile time, then we just place it there.
+				// Otherwise, we need to reference a variable
+				generate_expr(expr, base_register + 1);
+				comparison_index = add_expr(
+					{.type = e_expr_cmp_var_register, .a = {.val = var.id}, .b = {.val = base_register + 1}}
+				);
+
+				// @Note(tkap, 24/07/2023): Go to end of loop. We don't yet know to which instruction we have to jump, hence the -1
+				jump_index = add_expr({.type = e_expr_jump_greater_or_equal, .a = {.val = -1}});
+			}
 
 			// @Note(tkap, 24/07/2023): Do the for body
-			generate_statement(node->nfor.body, base_register + 2);
+			generate_statement(nfor.body, base_register + 2);
 
 			// @Note(tkap, 24/07/2023): Increment loop variable, go back to compare
 			int inc_loop_index = add_expr(var_to_register((e_register)(base_register), var.id));
-			add_expr({.type = e_expr_register_inc, .a = {.val = base_register}});
+			if(nfor.reverse)
+			{
+				add_expr({.type = e_expr_register_dec, .a = {.val = base_register}});
+			}
+			else
+			{
+				add_expr({.type = e_expr_register_inc, .a = {.val = base_register}});
+			}
+
 			add_expr({.type = e_expr_register_to_var, .a = {.val = var.id}, .b = {.val = base_register}});
 			int temp_index = add_expr({.type = e_expr_jump, .a = {.val = comparison_index}});
 

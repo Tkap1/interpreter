@@ -200,6 +200,23 @@ func s64 execute_expr(s_expr expr)
 			}
 		} break;
 
+		case e_expr_cmp_var_immediate:
+		{
+			s_var var = *get_var(expr.a.val);
+			if(var.val == expr.b.val)
+			{
+				g_flag = e_flag_equal;
+			}
+			else if(var.val > expr.b.val)
+			{
+				g_flag = e_flag_greater;
+			}
+			else if(var.val < expr.b.val)
+			{
+				g_flag = e_flag_lesser;
+			}
+		} break;
+
 		case e_expr_cmp_reg_reg:
 		{
 			dprint(
@@ -223,6 +240,14 @@ func s64 execute_expr(s_expr expr)
 		case e_expr_jump_greater:
 		{
 			if(g_flag == e_flag_greater)
+			{
+				result = expr.a.val;
+			}
+		} break;
+
+		case e_expr_jump_lesser:
+		{
+			if(g_flag == e_flag_lesser)
 			{
 				result = expr.a.val;
 			}
@@ -271,6 +296,15 @@ func s64 execute_expr(s_expr expr)
 				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64
 			);
 			g_registers[expr.a.val].val_s64 += 1;
+		} break;
+
+		case e_expr_register_dec:
+		{
+			dprint(
+				"dec %s(%lli)\n",
+				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64
+			);
+			g_registers[expr.a.val].val_s64 -= 1;
 		} break;
 
 		case e_expr_immediate_to_var:

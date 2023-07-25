@@ -85,6 +85,7 @@ struct s_node
 
 		struct
 		{
+			b8 reverse;
 			s_str<64> name;
 			s_node* expr;
 			s_node* body;

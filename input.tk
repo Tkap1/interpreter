@@ -1,0 +1,15 @@
+
+
+func int main()
+{
+
+	for < a: 5
+	{
+		for b: 5
+		{
+			print(a);
+			print(b);
+		}
+	}
+
+}

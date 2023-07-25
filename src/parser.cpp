@@ -342,6 +342,11 @@ func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* rep
 	{
 		result.node.type = e_node_for;
 
+		if(consume_token("<", &tokenizer))
+		{
+			result.node.nfor.reverse = true;
+		}
+
 		if(peek_token(e_token_identifier, tokenizer, &token) && peek_token(":", tokenizer, 1))
 		{
 			next_token(&tokenizer);
