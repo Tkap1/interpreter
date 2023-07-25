@@ -78,6 +78,12 @@ func void type_check_expr(s_node* node)
 			type_check_expr(node->arithmetic.right);
 		} break;
 
+		case e_node_equals:
+		{
+			type_check_expr(node->arithmetic.left);
+			type_check_expr(node->arithmetic.right);
+		} break;
+
 		invalid_default_case;
 	}
 }
@@ -136,6 +142,8 @@ func void type_check_statement(s_node* node)
 				add_type_check_var(var);
 			}
 
+			type_check_expr(node->nfor.expr);
+
 			for_node(arg, node->nfor.body)
 			{
 				type_check_statement(arg);
@@ -146,6 +154,8 @@ func void type_check_statement(s_node* node)
 		case e_node_if:
 		{
 			g_type_check_data.curr_scope += 1;
+
+			type_check_expr(node->nif.expr);
 
 			for_node(arg, node->nif.body)
 			{

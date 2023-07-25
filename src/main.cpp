@@ -151,6 +151,10 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_cmp_reg_reg:
 		{
+			dprint(
+				"cmp %s(%lli) %s(%lli)\n",
+				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+			);
 			if(g_registers[expr.a.val].val_s64 == g_registers[expr.b.val].val_s64)
 			{
 				g_flag = e_flag_equal;
@@ -183,17 +187,29 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_jump_not_equal:
 		{
+			dprint("jne %lli (", expr.a.val);
 			if(g_flag != e_flag_equal)
 			{
 				result = expr.a.val;
+				dprint("jumped)\n");
+			}
+			else
+			{
+				dprint("didn't jump)\n");
 			}
 		} break;
 
 		case e_expr_jump_equal:
 		{
+			dprint("je %lli (", expr.a.val);
 			if(g_flag == e_flag_equal)
 			{
 				result = expr.a.val;
+				dprint("jumped)\n");
+			}
+			else
+			{
+				dprint("didn't jump)\n");
 			}
 		} break;
 
@@ -226,25 +242,13 @@ func s64 execute_expr(s_expr expr)
 			g_registers[expr.a.val].val_s64 = var.val;
 		} break;
 
-		case e_expr_register_add:
+		case e_expr_add_reg_reg:
 		{
-			if(expr.b.operand == e_operand_immediate)
-			{
-				dprint(
-					"add %s(%lli) %lli\n",
-					register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, expr.b.val
-				);
-				g_registers[expr.a.val].val_s64 += expr.b.val;
-			}
-			else if(expr.b.operand == e_operand_register)
-			{
-				dprint(
-					"add %s(%lli) %s(%lli)\n",
-					register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
-				);
-				g_registers[expr.a.val].val_s64 += g_registers[expr.b.val].val_s64;
-			}
-			invalid_else;
+			dprint(
+				"add %s(%lli) %s(%lli)\n",
+				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+			);
+			g_registers[expr.a.val].val_s64 += g_registers[expr.b.val].val_s64;
 		} break;
 
 		case e_expr_add_register_to_var:
@@ -276,26 +280,23 @@ func s64 execute_expr(s_expr expr)
 			g_registers[expr.a.val].val_s64 %= g_registers[expr.b.val].val_s64;
 		} break;
 
-		case e_expr_imul2:
+		case e_expr_imul2_reg_var:
 		{
-			if(expr.b.operand == e_operand_register)
-			{
-				dprint(
-					"imul2 %s(%lli), %s(%lli)\n",
-					register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
-				);
-				g_registers[expr.a.val].val_s64 *= g_registers[expr.b.val].val_s64;
-			}
-			else if(expr.b.operand == e_operand_var)
-			{
-				s_var var = *get_var(expr.b.val);
-				dprint(
-					"imul2 %s(%lli), %lli\n",
-					register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val
-				);
-				g_registers[expr.a.val].val_s64 *= var.val;
-			}
-			invalid_else;
+			s_var var = *get_var(expr.b.val);
+			dprint(
+				"imul2 %s(%lli), %lli\n",
+				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val
+			);
+			g_registers[expr.a.val].val_s64 *= var.val;
+		} break;
+
+		case e_expr_imul2_reg_reg:
+		{
+			dprint(
+				"imul2 %s(%lli), %s(%lli)\n",
+				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+			);
+			g_registers[expr.a.val].val_s64 *= g_registers[expr.b.val].val_s64;
 		} break;
 
 		case e_expr_imul3:
@@ -331,17 +332,15 @@ func s64 execute_expr(s_expr expr)
 			left->val += right->val;
 		} break;
 
-		case e_expr_print:
+		case e_expr_print_immediate:
 		{
-			if(expr.a.operand == e_operand_var)
-			{
-				s_var* var = get_var(expr.a.val);
-				printf("%lli\n", var->val);
-			}
-			else if(expr.a.operand == e_operand_immediate)
-			{
-				printf("%lli\n", expr.a.val);
-			}
+			printf("%lli\n", expr.a.val);
+		} break;
+
+		case e_expr_print_var:
+		{
+			s_var* var = get_var(expr.a.val);
+			printf("%lli\n", var->val);
 		} break;
 
 		case e_expr_jump:
@@ -379,9 +378,7 @@ func s_expr var_to_register(int reg, s64 index)
 
 	s_expr expr = zero;
 	expr.type = e_expr_var_to_register;
-	expr.a.operand = e_operand_register;
 	expr.a.val = reg;
-	expr.b.operand = e_operand_var;
 	expr.b.val = index;
 	return expr;
 }
@@ -415,9 +412,14 @@ func void print_exprs()
 				printf("var_decl\n");
 			} break;
 
-			case e_expr_print:
+			case e_expr_print_immediate:
 			{
-				printf("print\n");
+				printf("print %lli\n", expr.a.val);
+			} break;
+
+			case e_expr_print_var:
+			{
+				printf("print var id %lli\n", expr.a.val);
 			} break;
 
 			case e_expr_jump:
@@ -428,11 +430,6 @@ func void print_exprs()
 			case e_expr_immediate_to_var:
 			{
 				printf("immediate to var\n");
-			} break;
-
-			case e_expr_register_add:
-			{
-				printf("add\n");
 			} break;
 
 			case e_expr_var_to_register:
@@ -480,9 +477,9 @@ func void print_exprs()
 				printf("cmp %s %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
 			} break;
 
-			case e_expr_imul2:
+			case e_expr_imul2_reg_reg:
 			{
-				printf("imul\n");
+				printf("imul reg reg\n");
 			} break;
 
 			case e_expr_imul3:
@@ -508,6 +505,11 @@ func void print_exprs()
 			case e_expr_register_mod_register:
 			{
 				printf("mod %s %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
+			} break;
+
+			case e_expr_add_reg_reg:
+			{
+				printf("add %s %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
 			} break;
 
 

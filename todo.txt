@@ -1,0 +1,4 @@
+do tests
+factorial
+fibbonacci
+primes

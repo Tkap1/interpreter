@@ -32,10 +32,10 @@ enum e_expr
 	e_expr_invalid,
 	e_expr_plus_equals,
 	e_expr_var_decl,
-	e_expr_print,
+	e_expr_print_immediate,
+	e_expr_print_var,
 	e_expr_jump,
 	e_expr_immediate_to_var,
-	e_expr_register_add,
 	e_expr_var_to_register,
 	e_expr_register_to_var,
 	e_expr_cmp,
@@ -46,12 +46,14 @@ enum e_expr
 	e_expr_jump_not_equal,
 	e_expr_jump_equal,
 	e_expr_register_inc,
-	e_expr_imul2,
+	e_expr_imul2_reg_reg,
+	e_expr_imul2_reg_var,
 	e_expr_imul3,
 	e_expr_val_to_register,
 	e_expr_add_register_to_var,
 	e_expr_register_mod_register,
 	e_expr_divide_reg_reg,
+	e_expr_add_reg_reg,
 };
 
 enum e_operand
@@ -63,7 +65,6 @@ enum e_operand
 
 struct s_foo
 {
-	e_operand operand;
 	s64 val;
 };
 

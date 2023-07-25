@@ -9,11 +9,11 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 		{
 			if(node->func_call.args->type == e_node_integer)
 			{
-				add_expr({.type = e_expr_print, .a = {.operand = e_operand_immediate, .val = node->func_call.args->integer.val}});
+				add_expr({.type = e_expr_print_immediate, .a = {.val = node->func_call.args->integer.val}});
 			}
 			else if(node->func_call.args->type == e_node_identifier)
 			{
-				add_expr({.type = e_expr_print, .a = {.operand = e_operand_var, .val = node->func_call.args->var_data.id}});
+				add_expr({.type = e_expr_print_var, .a = {.val = node->func_call.args->var_data.id}});
 			}
 			invalid_else;
 		} break;
@@ -22,7 +22,7 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 		{
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_register_add, .a = {.val = base_register}, .b = {.operand = e_operand_register, .val = base_register + 1}});
+			add_expr({.type = e_expr_add_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
 		} break;
 
 		case e_node_divide:
@@ -156,7 +156,7 @@ func void generate_statement(s_node* node, int base_register)
 		{
 			add_expr(var_to_register(base_register, node->arithmetic.left->var_data.id));
 			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_imul2, .a = {.val = base_register}, .b = {.operand = e_operand_register, .val = base_register + 1}});
+			add_expr({.type = e_expr_imul2_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
 			add_expr({.type = e_expr_register_to_var, .a = {.val = node->arithmetic.left->var_data.id}, .b = {.val = base_register}});
 		} break;
 
