@@ -95,6 +95,7 @@ func void do_tests()
 		{.file = "tests/factorial.tk", .expected_result = 3628800},
 		{.file = "tests/fibonacci.tk", .expected_result = 55},
 		{.file = "tests/prime.tk", .expected_result = 79},
+		{.file = "tests/break2.tk", .expected_result = 2},
 	};
 
 	for(int test_i = 0; test_i < array_count(c_tests); test_i++)

@@ -105,6 +105,12 @@ func void type_check_statement(s_node* node)
 		case e_node_break:
 		{
 			// @TODO(tkap, 25/07/2023): We should check that we are inside a for loop
+			// and that the value matches how many loops deep we are in
+		} break;
+
+		case e_node_continue:
+		{
+			// @TODO(tkap, 25/07/2023): We should check that we are inside a for loop
 		} break;
 
 		case e_node_var_decl:

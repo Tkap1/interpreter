@@ -312,6 +312,12 @@ func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* rep
 		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected ';' after 'break'"); }
 	}
 
+	else if(consume_token("continue", &tokenizer))
+	{
+		result.node.type = e_node_continue;
+		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected ';' after 'continue'"); }
+	}
+
 	else if(consume_token("int", &tokenizer))
 	{
 		result.node.type = e_node_var_decl;

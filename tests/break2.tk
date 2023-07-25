@@ -1,0 +1,15 @@
+
+func int main()
+{
+	int result = 0;
+	for a: 4
+	{
+		result += 1;
+		for b: 4
+		{
+			result += 1;
+			break 2;
+		}
+	}
+	return result;
+}

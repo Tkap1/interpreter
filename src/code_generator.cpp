@@ -113,7 +113,7 @@ func void generate_statement(s_node* node, int base_register)
 			generate_statement(node->nfor.body, base_register + 2);
 
 			// @Note(tkap, 24/07/2023): Increment loop variable, go back to compare
-			add_expr(var_to_register((e_register)(base_register), var.id));
+			int inc_loop_index = add_expr(var_to_register((e_register)(base_register), var.id));
 			add_expr({.type = e_expr_register_inc, .a = {.val = base_register}});
 			add_expr({.type = e_expr_register_to_var, .a = {.val = var.id}, .b = {.val = base_register}});
 			int temp_index = add_expr({.type = e_expr_jump, .a = {.val = comparison_index}});
@@ -128,6 +128,13 @@ func void generate_statement(s_node* node, int base_register)
 					g_code_gen_data.break_indices.remove_and_swap(break_index_i--);
 				}
 			}
+
+			foreach_raw(continue_index_i, continue_index, g_code_gen_data.continue_indices)
+			{
+				assert(g_exprs[continue_index].a.val == -1);
+				g_exprs[continue_index].a.val = inc_loop_index;
+			}
+			g_code_gen_data.continue_indices.count = 0;
 
 			// @Note(tkap, 24/07/2023): Now we modify the jump instruction that is supposed to take us to the end of the for body
 			g_exprs[jump_index].a.val = temp_index + 1;
@@ -195,6 +202,12 @@ func void generate_statement(s_node* node, int base_register)
 			break_index.val = node->nbreak.val;
 			break_index.index = index;
 			g_code_gen_data.break_indices.add(break_index);
+		} break;
+
+		case e_node_continue:
+		{
+			int index = add_expr({.type = e_expr_jump, .a = {.val = -1}});
+			g_code_gen_data.continue_indices.add(index);
 		} break;
 
 		default:

@@ -27,6 +27,7 @@ enum e_node
 	e_node_func_decl,
 	e_node_func_arg,
 	e_node_break,
+	e_node_continue,
 };
 
 struct s_node;

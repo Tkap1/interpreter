@@ -8,6 +8,7 @@ struct s_break_index
 struct s_code_gen_data
 {
 	s_sarray<s_break_index, 1024> break_indices;
+	s_sarray<int, 1024> continue_indices;
 	s64 next_id;
 };
 
