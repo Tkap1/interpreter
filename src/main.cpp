@@ -36,42 +36,11 @@ int main(int argc, char** argv)
 
 	CreateThread(null, 0, watch_for_file_changes, null, 0, null);
 
-
 	while(true)
 	{
 		system("cls");
 
 		reset_globals();
-
-		#if 0
-		// @Note(tkap, 24/07/2023): i
-		{
-			s_var var = zero;
-			var.id = g_id++;
-			var.val = 1;
-			g_vars.add(var);
-		}
-
-		// @Note(tkap, 24/07/2023): result
-		{
-			s_var var = zero;
-			var.id = g_id++;
-			var.val = 1;
-			g_vars.add(var);
-		}
-
-		add_expr({.type = e_expr_cmp, .a = {.val = 0}, .b = {.val = 10}});
-		add_expr({.type = e_expr_jump_greater, .a = {.val = 9}});
-		add_expr(var_to_register(e_register_eax, 1));
-		add_expr({.type = e_expr_imul2, .a = {.val = e_register_eax}, .b = {.operand = e_operand_var, .val = 0}});
-		add_expr({.type = e_expr_register_to_var, .a = {.val = 1}, .b = {.val = e_register_eax}});
-		add_expr(var_to_register(e_register_eax, 0));
-		add_expr({.type = e_expr_register_inc, .a = {.val = e_register_eax}});
-		add_expr({.type = e_expr_register_to_var, .a = {.val = 0}, .b = {.val = e_register_eax}});
-		add_expr({.type = e_expr_jump, .a = {.val = 0}});
-		add_expr({.type = e_expr_print, .a = {.val = 1}});
-		// add_expr({.type = e_expr_jump, .a = {.val = 0}});
-		#else
 
 		s_tokenizer tokenizer = zero;
 		tokenizer.at = read_file_quick("input.tk", &g_arena);
@@ -81,7 +50,6 @@ int main(int argc, char** argv)
 			type_check(ast);
 			generate_code(ast);
 		}
-		#endif
 
 		while(g_expr_index < g_exprs.count)
 		{
