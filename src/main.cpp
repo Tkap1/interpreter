@@ -9,8 +9,10 @@
 global constexpr s64 c_return_value = -1234;
 
 global s64 g_id = 0;
+global s_sarray<int, 1024> g_call_stack;
 global s_sarray<s_var, 1024> g_vars;
 global s_sarray<s_expr, 1024> g_exprs;
+global s_carray<int, 1024> g_func_first_expr_index;
 global s64 g_expr_index = 0;
 global s_carray<s_register, e_register_count> g_registers;
 global e_flag g_flag;
@@ -38,8 +40,6 @@ int main(int argc, char** argv)
 
 	while(true)
 	{
-		system("cls");
-
 		reset_globals();
 
 		s_tokenizer tokenizer = zero;
@@ -69,6 +69,7 @@ int main(int argc, char** argv)
 
 				if(InterlockedCompareExchange((LONG*)&g_input_edited, 0, 1) == 1)
 				{
+					system("cls");
 					break;
 				}
 			}
@@ -83,6 +84,7 @@ int main(int argc, char** argv)
 
 func void do_tests()
 {
+	system("cls");
 	struct s_test_data
 	{
 		char* file;
@@ -142,6 +144,14 @@ func s64 execute_expr(s_expr expr)
 	s64 result = g_expr_index + 1;
 	switch(expr.type)
 	{
+
+		case e_expr_call:
+		{
+			g_call_stack.add(result);
+			dprint("call %lli\n", expr.a.val);
+			result = g_func_first_expr_index[expr.a.val];
+		} break;
+
 		case e_expr_cmp:
 		{
 			s_var var = *get_var(expr.a.val);
@@ -161,8 +171,15 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_return:
 		{
+			if(g_call_stack.count == 0)
+			{
+				result = c_return_value;
+			}
+			else
+			{
+				result = g_call_stack.pop();
+			}
 			dprint("return\n");
-			result = c_return_value;
 		} break;
 
 		case e_expr_cmp_var_register:
@@ -502,7 +519,7 @@ func void print_exprs()
 
 			case e_expr_return:
 			{
-				printf("return");
+				printf("return\n");
 			} break;
 
 			case e_expr_register_inc:
@@ -548,6 +565,11 @@ func void print_exprs()
 			case e_expr_add_reg_reg:
 			{
 				printf("add %s %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
+			} break;
+
+			case e_expr_call:
+			{
+				printf("call %lli\n", expr.a.val);
 			} break;
 
 
@@ -602,5 +624,6 @@ func void reset_globals()
 	g_expr_index = 0;
 	g_type_check_data = zero;
 	g_code_gen_data = zero;
+	g_call_stack.count = 0;
 	memset(g_registers.elements, 0, sizeof(s64) * e_register_count);
 }

@@ -2,3 +2,7 @@ do tests
 factorial
 fibbonacci
 primes
+
+
+problem is that the 'a' in a == 5 is lacking the var data that would tell us the var id!!
+we may have to set as invalid and assert so we find these problems easily.

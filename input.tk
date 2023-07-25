@@ -1,21 +1,9 @@
 
-
-
-for p_: 100
+func int main()
 {
-	int p = p_ + 2;
-	int is_prime = 1;
-	for check_: p / 2 + 1
+	for 10
 	{
-		int check = check_ + 2;
-		int m = p % check;
-		if m == 0
-		{
-			is_prime = 0;
-		}
-	}
-	if is_prime == 1
-	{
-		print(p);
+		print(it);
+		break;
 	}
 }

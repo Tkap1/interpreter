@@ -1,12 +1,15 @@
 
 
-int a = 0;
-int b = 1;
-
-for 10
+func int main()
 {
-	int temp = b;
-	b += a;
-	a = temp;
+	int a = 0;
+	int b = 1;
+
+	for 10
+	{
+		int temp = b;
+		b += a;
+		a = temp;
+	}
+	return a;
 }
-return a;

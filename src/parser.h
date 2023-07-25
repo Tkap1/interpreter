@@ -7,7 +7,6 @@ enum e_node
 	e_node_identifier,
 	e_node_var_decl,
 	e_node_for,
-	e_node_func_decl,
 	e_node_compound,
 	e_node_plus_equals,
 	e_node_times_equals,
@@ -25,10 +24,15 @@ enum e_node
 	e_node_greater_than,
 	e_node_less_than,
 	e_node_return,
+	e_node_func_decl,
+	e_node_func_arg,
+	e_node_break,
 };
 
+struct s_node;
 struct s_type_check_var
 {
+	s_node* func_node;
 	s64 id;
 	s_str<64> name;
 };
@@ -38,20 +42,28 @@ struct s_node
 	int line;
 	e_node type;
 	s_node* next;
+
+	// @Fixme(tkap, 25/07/2023): Bad name. Probably something like "type_checked_data"
 	s_type_check_var var_data;
 
 	union
 	{
 		struct
 		{
+			int arg_count;
 			s_node* left;
 			s_node* args;
 		} func_call;
 
 		struct
 		{
+			s64 id;
+			b8 external;
+			int arg_count;
 			s_str<64> name;
-			s_node* args; // @TODO(tkap, 24/07/2023):
+			s_node* return_type;
+			s_node* args;
+			s_node* body;
 		} func_decl;
 
 		struct
@@ -99,6 +111,18 @@ struct s_node
 		{
 			s_node* expr;
 		} nreturn;
+
+		struct
+		{
+			int pointer_level;
+			s_str<64> name;
+		} ntype;
+
+		struct
+		{
+			s_node* type;
+			s_str<64> name;
+		} func_arg;
 	};
 };
 
@@ -130,3 +154,5 @@ func s_node** node_set_and_advance(s_node** target, s_node node);
 func int get_operator_level(char* str);
 func void print_parser_expr(s_node* node);
 func b8 peek_assignment_token(s_tokenizer tokenizer, e_node* out_type);
+func s_parse_result parse_type(s_tokenizer tokenizer, s_error_reporter* reporter);
+func s_parse_result parse_func_decl(s_tokenizer tokenizer, s_error_reporter* reporter);

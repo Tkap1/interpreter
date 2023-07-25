@@ -7,15 +7,23 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 	{
 		case e_node_func_call:
 		{
-			if(node->func_call.args->type == e_node_integer)
+			// @Fixme(tkap, 25/07/2023):
+			if(node->var_data.func_node->func_decl.name.equals("print"))
 			{
-				add_expr({.type = e_expr_print_immediate, .a = {.val = node->func_call.args->integer.val}});
+				if(node->func_call.args->type == e_node_integer)
+				{
+					add_expr({.type = e_expr_print_immediate, .a = {.val = node->func_call.args->integer.val}});
+				}
+				else if(node->func_call.args->type == e_node_identifier)
+				{
+					add_expr({.type = e_expr_print_var, .a = {.val = node->func_call.args->var_data.id}});
+				}
+				invalid_else;
 			}
-			else if(node->func_call.args->type == e_node_identifier)
+			else
 			{
-				add_expr({.type = e_expr_print_var, .a = {.val = node->func_call.args->var_data.id}});
+				add_expr({.type = e_expr_call, .a = {.val = node->var_data.func_node->func_decl.id}});
 			}
-			invalid_else;
 		} break;
 
 		case e_node_add:
@@ -180,9 +188,37 @@ func void generate_code(s_node* ast)
 {
 	assert(ast);
 
+	// @Note(tkap, 25/07/2023): Call main. We still need to figure out where the first instruction of main is
+	add_expr({.type = e_expr_call, .a = {.val = -1}});
+	add_expr({.type = e_expr_return});
+
 	for_node(node, ast)
 	{
-		generate_statement(node, e_register_eax);
+		switch(node->type)
+		{
+			case e_node_func_decl:
+			{
+				auto func_decl = &node->func_decl;
+
+				if(func_decl->name.equals("main"))
+				{
+					g_exprs[0].a.val = func_decl->id;
+				}
+
+				for_node(arg, func_decl->args)
+				{
+					s_var var = zero;
+					var.id = g_id++;
+					g_vars.add(var);
+				}
+
+				g_func_first_expr_index[func_decl->id] = g_exprs.count;
+
+				generate_statement(func_decl->body, e_register_eax);
+				add_expr({.type = e_expr_return});
+
+			} break;
+		}
 	}
 }
 

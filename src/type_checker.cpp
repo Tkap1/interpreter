@@ -54,6 +54,7 @@ func void type_check_expr(s_node* node)
 		{
 			s_node* func_node = node_to_func(node->func_call.left);
 			assert(func_node);
+			node->var_data.func_node = func_node;
 
 			for_node(arg, node->func_call.args)
 			{
@@ -101,6 +102,11 @@ func void type_check_statement(s_node* node)
 			}
 		} break;
 
+		case e_node_break:
+		{
+			// @TODO(tkap, 25/07/2023): We should check that we are inside a for loop
+		} break;
+
 		case e_node_var_decl:
 		{
 			node->var_data.id = g_type_check_data.next_id++;
@@ -112,14 +118,6 @@ func void type_check_statement(s_node* node)
 				var.id = node->var_data.id;
 				var.name = node->var_decl.name;
 				add_type_check_var(var);
-			}
-		} break;
-
-		case e_node_func_call:
-		{
-			for_node(arg, node->func_call.args)
-			{
-				type_check_expr(arg);
 			}
 		} break;
 
@@ -187,6 +185,11 @@ func void type_check_statement(s_node* node)
 	}
 }
 
+func b8 type_check_type(s_node* node)
+{
+	return true;
+}
+
 func void type_check(s_node* ast)
 {
 	assert(ast);
@@ -194,13 +197,33 @@ func void type_check(s_node* ast)
 	{
 		s_node f = zero;
 		f.type = e_node_func_decl;
+		f.func_decl.external = true;
 		f.func_decl.name.from_cstr("print");
+		f.func_decl.id = g_type_check_data.next_func_id++;
 		g_type_check_data.funcs.add(f);
 	}
 
 	for_node(node, ast)
 	{
-		type_check_statement(node);
+		switch(node->type)
+		{
+			case e_node_func_decl:
+			{
+				auto func_decl = &node->func_decl;
+				node->func_decl.id = g_type_check_data.next_func_id++;
+				g_type_check_data.funcs.add(*node);
+
+				type_check_type(func_decl->return_type);
+
+				for_node(arg, func_decl->args)
+				{
+					type_check_type(arg);
+					// @TODO(tkap, 25/07/2023): Prevent duplicate argument names, including other arguments, globals, functions, structs, etc...
+				}
+
+				type_check_statement(func_decl->body);
+			} break;
+		}
 	}
 }
 

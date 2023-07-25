@@ -2,7 +2,6 @@
 struct s_code_gen_data
 {
 	s64 next_id;
-	s64 next_id_before_exec;
 };
 
 
@@ -55,6 +54,7 @@ enum e_expr
 	e_expr_divide_reg_reg,
 	e_expr_add_reg_reg,
 	e_expr_return,
+	e_expr_call,
 };
 
 enum e_operand
