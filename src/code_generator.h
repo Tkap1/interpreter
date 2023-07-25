@@ -1,9 +1,15 @@
 
-struct s_code_gen_data
+struct s_break_index
 {
-	s64 next_id;
+	int index;
+	int val;
 };
 
+struct s_code_gen_data
+{
+	s_sarray<s_break_index, 1024> break_indices;
+	s64 next_id;
+};
 
 enum e_register
 {

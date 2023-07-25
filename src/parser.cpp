@@ -303,6 +303,12 @@ func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* rep
 	else if(consume_token("break", &tokenizer))
 	{
 		result.node.type = e_node_break;
+		result.node.nbreak.val = 1;
+		if(consume_token(e_token_number, &tokenizer, &token))
+		{
+			result.node.nbreak.val = (int)token_to_int(token);
+		}
+
 		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected ';' after 'break'"); }
 	}
 

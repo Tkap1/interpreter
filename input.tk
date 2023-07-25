@@ -1,9 +1,14 @@
 
 func int main()
 {
-	for 10
+	for a: 4
 	{
-		print(it);
-		break;
+		print(a);
+		for b: 4
+		{
+			print(b);
+			break 2;
+		}
 	}
+	print(420);
 }

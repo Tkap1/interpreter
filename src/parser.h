@@ -123,6 +123,11 @@ struct s_node
 			s_node* type;
 			s_str<64> name;
 		} func_arg;
+
+		struct
+		{
+			int val;
+		} nbreak;
 	};
 };
 

@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 	g_arena = make_lin_arena(1 * c_mb, false);
 	stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
 
-	do_tests();
+	// do_tests();
 
 	CreateThread(null, 0, watch_for_file_changes, null, 0, null);
 

@@ -118,6 +118,17 @@ func void generate_statement(s_node* node, int base_register)
 			add_expr({.type = e_expr_register_to_var, .a = {.val = var.id}, .b = {.val = base_register}});
 			int temp_index = add_expr({.type = e_expr_jump, .a = {.val = comparison_index}});
 
+			foreach(break_index_i, break_index, g_code_gen_data.break_indices)
+			{
+				assert(g_exprs[break_index->index].a.val == -1);
+				break_index->val -= 1;
+				if(break_index->val <= 0)
+				{
+					g_exprs[break_index->index].a.val = temp_index + 1;
+					g_code_gen_data.break_indices.remove_and_swap(break_index_i--);
+				}
+			}
+
 			// @Note(tkap, 24/07/2023): Now we modify the jump instruction that is supposed to take us to the end of the for body
 			g_exprs[jump_index].a.val = temp_index + 1;
 
@@ -175,6 +186,15 @@ func void generate_statement(s_node* node, int base_register)
 			generate_expr(node->arithmetic.right, base_register + 1);
 			add_expr({.type = e_expr_imul2_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
 			add_expr({.type = e_expr_register_to_var, .a = {.val = node->arithmetic.left->var_data.id}, .b = {.val = base_register}});
+		} break;
+
+		case e_node_break:
+		{
+			int index = add_expr({.type = e_expr_jump, .a = {.val = -1}});
+			s_break_index break_index = zero;
+			break_index.val = node->nbreak.val;
+			break_index.index = index;
+			g_code_gen_data.break_indices.add(break_index);
 		} break;
 
 		default:
