@@ -54,6 +54,7 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 			result.comparison = e_node_equals;
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
+			add_expr({.type = e_expr_cmp_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
 		} break;
 
 		invalid_default_case;
@@ -117,7 +118,6 @@ func void generate_statement(s_node* node, int base_register)
 		case e_node_if:
 		{
 			s_gen_data gen_data = generate_expr(node->nif.expr, base_register);
-			add_expr({.type = e_expr_cmp_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
 			int jump_index = 0;
 			switch(gen_data.comparison)
 			{
