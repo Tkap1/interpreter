@@ -27,9 +27,7 @@ if %debug%==2 (
 )
 
 pushd build
-	stamp_timer.exe start
 	cl %files% %comp% -link %linker% > temp_compiler_output.txt
-	stamp_timer.exe end
 popd
 if %errorlevel%==0 goto success
 goto fail
