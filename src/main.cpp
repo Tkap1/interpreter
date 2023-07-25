@@ -6,6 +6,8 @@
 #include "code_generator.h"
 #include "main.h"
 
+global constexpr s64 c_return_value = -1234;
+
 global s64 g_id = 0;
 global s_sarray<s_var, 1024> g_vars;
 global s_sarray<s_expr, 1024> g_exprs;
@@ -16,6 +18,7 @@ global volatile int g_input_edited;
 global s_lin_arena g_arena;
 global s_type_check_data g_type_check_data = zero;
 global s_code_gen_data g_code_gen_data;
+global HANDLE stdout_handle;
 
 #include "parser.cpp"
 #include "type_checker.cpp"
@@ -26,13 +29,19 @@ int main(int argc, char** argv)
 	argc -= 1;
 	argv += 1;
 
+	g_arena = make_lin_arena(1 * c_mb, false);
+	stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+
+	do_tests();
+
 	CreateThread(null, 0, watch_for_file_changes, null, 0, null);
 
-	g_arena = make_lin_arena(1 * c_mb, false);
 
 	while(true)
 	{
 		system("cls");
+
+		reset_globals();
 
 		#if 0
 		// @Note(tkap, 24/07/2023): i
@@ -77,18 +86,11 @@ int main(int argc, char** argv)
 		while(g_expr_index < g_exprs.count)
 		{
 			g_expr_index = execute_expr(g_exprs[g_expr_index]);
+			if(g_expr_index == c_return_value) { break; }
 		}
 		printf("------\n");
 		print_exprs();
 		printf("@@@@@@\n");
-
-		g_vars.count = 0;
-		g_exprs.count = 0;
-		g_id = 0;
-		g_expr_index = 0;
-		g_type_check_data = zero;
-		g_code_gen_data = zero;
-		memset(g_registers.elements, 0, sizeof(s64) * e_register_count);
 
 		while(true)
 		{
@@ -106,7 +108,64 @@ int main(int argc, char** argv)
 		}
 	}
 
+	SetConsoleTextAttribute(stdout_handle, FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
+
 	return 0;
+}
+
+func void do_tests()
+{
+	struct s_test_data
+	{
+		char* file;
+		int expected_result;
+	};
+
+	constexpr s_test_data c_tests[] = {
+		{.file = "tests/factorial.tk", .expected_result = 3628800},
+		{.file = "tests/fibonacci.tk", .expected_result = 55},
+		{.file = "tests/prime.tk", .expected_result = 79},
+	};
+
+	for(int test_i = 0; test_i < array_count(c_tests); test_i++)
+	{
+		s_test_data test = c_tests[test_i];
+		s64 result = parse_file_and_execute(test.file);
+		if(result == test.expected_result)
+		{
+			SetConsoleTextAttribute(stdout_handle, FOREGROUND_GREEN);
+			printf("TEST %i %s PASSED!\n", test_i + 1, test.file);
+		}
+		else
+		{
+			SetConsoleTextAttribute(stdout_handle, FOREGROUND_RED);
+			printf("--------------------\n\n");
+			printf("TEST %i %s FAILED!\n\n", test_i + 1, test.file);
+			printf("--------------------\n\n");
+		}
+	}
+	SetConsoleTextAttribute(stdout_handle, FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
+}
+
+func s64 parse_file_and_execute(char* file)
+{
+	reset_globals();
+
+	s_tokenizer tokenizer = zero;
+	tokenizer.at = read_file_quick(file, &g_arena);
+	if(!tokenizer.at) { return -1; }
+
+	s_node* ast = parse(tokenizer);
+	if(!ast) { return -1; }
+	type_check(ast);
+	generate_code(ast);
+
+	while(g_expr_index < g_exprs.count)
+	{
+		g_expr_index = execute_expr(g_exprs[g_expr_index]);
+		if(g_expr_index == c_return_value) { break; }
+	}
+	return g_registers[e_register_eax].val_s64;
 }
 
 
@@ -130,6 +189,12 @@ func s64 execute_expr(s_expr expr)
 			{
 				g_flag = e_flag_lesser;
 			}
+		} break;
+
+		case e_expr_return:
+		{
+			dprint("return\n");
+			result = c_return_value;
 		} break;
 
 		case e_expr_cmp_var_register:
@@ -467,6 +532,11 @@ func void print_exprs()
 				printf("jne %lli\n", expr.a.val);
 			} break;
 
+			case e_expr_return:
+			{
+				printf("return");
+			} break;
+
 			case e_expr_register_inc:
 			{
 				printf("inc %s\n", register_to_str(expr.a.val));
@@ -554,4 +624,15 @@ func char* register_to_str(int reg)
 		invalid_default_case;
 	}
 	return "";
+}
+
+func void reset_globals()
+{
+	g_vars.count = 0;
+	g_exprs.count = 0;
+	g_id = 0;
+	g_expr_index = 0;
+	g_type_check_data = zero;
+	g_code_gen_data = zero;
+	memset(g_registers.elements, 0, sizeof(s64) * e_register_count);
 }

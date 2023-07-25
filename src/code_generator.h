@@ -54,6 +54,7 @@ enum e_expr
 	e_expr_register_mod_register,
 	e_expr_divide_reg_reg,
 	e_expr_add_reg_reg,
+	e_expr_return,
 };
 
 enum e_operand

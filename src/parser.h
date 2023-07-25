@@ -24,6 +24,7 @@ enum e_node
 	e_node_less_than_or_equal,
 	e_node_greater_than,
 	e_node_less_than,
+	e_node_return,
 };
 
 struct s_type_check_var
@@ -92,6 +93,11 @@ struct s_node
 			s_node* left;
 			s_node* right;
 		} arithmetic;
+
+		struct
+		{
+			s_node* expr;
+		} nreturn;
 	};
 };
 

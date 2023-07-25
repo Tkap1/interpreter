@@ -219,6 +219,19 @@ func s_parse_result parse_statement(s_tokenizer tokenizer)
 		result.node.nif.body = make_node(pr.node);
 	}
 
+	else if(consume_token("return", &tokenizer))
+	{
+		result.node.type = e_node_return;
+
+		pr = parse_expr(tokenizer, 0);
+		if(pr.success)
+		{
+			tokenizer = pr.tokenizer;
+			result.node.nreturn.expr = make_node(pr.node);
+		}
+		if(!consume_token(";", &tokenizer)) { assert(false); }
+	}
+
 	else if(consume_token("{", &tokenizer))
 	{
 		result.node.type = e_node_compound;

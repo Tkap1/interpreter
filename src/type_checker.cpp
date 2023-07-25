@@ -123,6 +123,14 @@ func void type_check_statement(s_node* node)
 			}
 		} break;
 
+		case e_node_return:
+		{
+			if(node->nreturn.expr)
+			{
+				type_check_expr(node->nreturn.expr);
+			}
+		} break;
+
 		case e_node_for:
 		{
 			g_type_check_data.curr_scope += 1;

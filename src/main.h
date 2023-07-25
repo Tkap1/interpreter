@@ -28,3 +28,6 @@ func s_expr var_to_register(int reg, s64 index);
 DWORD WINAPI watch_for_file_changes(void* param);
 func void print_exprs();
 func char* register_to_str(int reg);
+func void do_tests();
+func s64 parse_file_and_execute(char* file);
+func void reset_globals();

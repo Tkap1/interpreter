@@ -140,6 +140,15 @@ func void generate_statement(s_node* node, int base_register)
 			}
 		} break;
 
+		case e_node_return:
+		{
+			if(node->nreturn.expr)
+			{
+				generate_expr(node->nreturn.expr, e_register_eax);
+			}
+			add_expr({.type = e_expr_return});
+		} break;
+
 		case e_node_assign:
 		{
 			generate_expr(node->arithmetic.right, base_register);
