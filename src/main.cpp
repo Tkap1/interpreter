@@ -89,8 +89,8 @@ int main(int argc, char** argv)
 			if(g_expr_index == c_return_value) { break; }
 		}
 		printf("------\n");
-		print_exprs();
-		printf("@@@@@@\n");
+		// print_exprs();
+		// printf("@@@@@@\n");
 
 		while(true)
 		{

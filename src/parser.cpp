@@ -1,6 +1,7 @@
 
 func s_node* parse(s_tokenizer tokenizer)
 {
+	s_error_reporter reporter = zero;
 	s_node* result = null;
 	s_node** target = &result;
 	s_token token = zero;
@@ -8,7 +9,7 @@ func s_node* parse(s_tokenizer tokenizer)
 	while(true)
 	{
 		if(consume_token(e_token_eof, &tokenizer, &token)) { break; }
-		pr = parse_statement(tokenizer);
+		pr = parse_statement(tokenizer, &reporter);
 		if(pr.success)
 		{
 			tokenizer = pr.tokenizer;
@@ -16,17 +17,18 @@ func s_node* parse(s_tokenizer tokenizer)
 			continue;
 		}
 
-		assert(false);
+		reporter.fatal(0, "TODOFILE", "We did not find a statement");
 	}
 
 	return result;
 }
 
-func s_parse_result parse_sub_expr(s_tokenizer tokenizer)
+func s_parse_result parse_sub_expr(s_tokenizer tokenizer, s_error_reporter* reporter)
 {
 	s_parse_result result = zero;
 	s_parse_result pr = zero;
 	s_token token = zero;
+	result.node.line = tokenizer.line_num;
 
 	if(consume_token(e_token_identifier, &tokenizer, &token))
 	{
@@ -50,7 +52,7 @@ func s_parse_result parse_sub_expr(s_tokenizer tokenizer)
 	return result;
 }
 
-func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level)
+func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level, s_error_reporter* reporter)
 {
 	s_parse_result result = zero;
 	s_parse_result pr = zero;
@@ -58,7 +60,7 @@ func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level)
 	s_node arg = zero;
 	auto arithmetic = &result.node.arithmetic;
 
-	pr = parse_sub_expr(tokenizer);
+	pr = parse_sub_expr(tokenizer, reporter);
 	if(!pr.success) { goto end; }
 	tokenizer = pr.tokenizer;
 	result.node = pr.node;
@@ -90,8 +92,11 @@ func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level)
 			s_operator_query query = queries[query_i];
 			if(get_operator_level(query.str) > operator_level && consume_token(query.str, &tokenizer))
 			{
-				pr = parse_expr(tokenizer, get_operator_level(query.str));
-				assert(pr.success);
+				pr = parse_expr(tokenizer, get_operator_level(query.str), reporter);
+				if(!pr.success)
+				{
+					reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected expression after operator");
+				}
 				tokenizer = pr.tokenizer;
 				type = query.type;
 				break;
@@ -114,7 +119,7 @@ func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level)
 
 	if(consume_token("(", &tokenizer))
 	{
-		pr = parse_expr(tokenizer, operator_level);
+		pr = parse_expr(tokenizer, operator_level, reporter);
 		if(pr.success)
 		{
 			tokenizer = pr.tokenizer;
@@ -124,7 +129,7 @@ func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level)
 			temp.func_call.args = make_node(pr.node);
 			result.node = temp;
 		}
-		if(!consume_token(")", &tokenizer)) { assert(false); }
+		if(!consume_token(")", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected ')'"); }
 	}
 
 	result.success = true;
@@ -134,7 +139,7 @@ func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level)
 	return result;
 }
 
-func s_parse_result parse_statement(s_tokenizer tokenizer)
+func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* reporter)
 {
 	s_parse_result result = zero;
 	s_parse_result pr = zero;
@@ -144,8 +149,9 @@ func s_parse_result parse_statement(s_tokenizer tokenizer)
 	auto compound = &result.node.compound;
 	auto arithmetic = &result.node.arithmetic;
 	e_node assign_type;
+	result.node.line = tokenizer.line_num;
 
-	pr = parse_expr(tokenizer, 0);
+	pr = parse_expr(tokenizer, 0, reporter);
 
 	if(pr.success && peek_assignment_token(pr.tokenizer, &assign_type))
 	{
@@ -155,29 +161,36 @@ func s_parse_result parse_statement(s_tokenizer tokenizer)
 		result.node.type = assign_type;
 		arithmetic->left = make_node(pr.node);
 
-		pr = parse_expr(tokenizer, 0);
-		assert(pr.success);
+		pr = parse_expr(tokenizer, 0, reporter);
+		if(!pr.success)
+		{
+			reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected expression");
+		}
+
 		tokenizer = pr.tokenizer;
 		arithmetic->right = make_node(pr.node);
 
-		if(!consume_token(";", &tokenizer)) { assert(false); }
+		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected ';'"); }
 	}
 
 	else if(consume_token("int", &tokenizer))
 	{
 		result.node.type = e_node_var_decl;
 
-		if(!consume_token(e_token_identifier, &tokenizer, &token)) { assert(false); }
+		if(!consume_token(e_token_identifier, &tokenizer, &token)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected identifier"); }
 		var_decl->name.from_data(token.at, token.length);
 
-		if(!consume_token("=", &tokenizer)) { assert(false); }
+		if(!consume_token("=", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected '='"); }
 
-		pr = parse_expr(tokenizer, 0);
-		assert(pr.success);
+		pr = parse_expr(tokenizer, 0, reporter);
+		if(!pr.success)
+		{
+			reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected expression");
+		}
 		tokenizer = pr.tokenizer;
 		var_decl->val = make_node(pr.node);
 
-		if(!consume_token(";", &tokenizer)) { assert(false); }
+		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected ';'"); }
 	}
 
 	else if(consume_token("for", &tokenizer))
@@ -191,14 +204,17 @@ func s_parse_result parse_statement(s_tokenizer tokenizer)
 			result.node.nfor.name.from_data(token.at, token.length);
 		}
 
-		pr = parse_expr(tokenizer, 0);
-		if(!pr.success) { assert(false); }
+		pr = parse_expr(tokenizer, 0, reporter);
+		if(!pr.success) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected expression after 'for'"); }
 		tokenizer = pr.tokenizer;
 		result.node.nfor.expr = make_node(pr.node);
 
-		pr = parse_statement(tokenizer);
-		if(!pr.success) { assert(false); }
-		assert(pr.node.type == e_node_compound);
+		pr = parse_statement(tokenizer, reporter);
+		if(!pr.success) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected statement after 'for'"); }
+		if(pr.node.type != e_node_compound)
+		{
+			reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected a compound statement after 'for'");
+		}
 		tokenizer = pr.tokenizer;
 		result.node.nfor.body = make_node(pr.node);
 	}
@@ -207,14 +223,17 @@ func s_parse_result parse_statement(s_tokenizer tokenizer)
 	{
 		result.node.type = e_node_if;
 
-		pr = parse_expr(tokenizer, 0);
-		if(!pr.success) { assert(false); }
+		pr = parse_expr(tokenizer, 0, reporter);
+		if(!pr.success) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected expression after 'if'"); }
 		tokenizer = pr.tokenizer;
 		result.node.nif.expr = make_node(pr.node);
 
-		pr = parse_statement(tokenizer);
-		if(!pr.success) { assert(false); }
-		assert(pr.node.type == e_node_compound);
+		pr = parse_statement(tokenizer, reporter);
+		if(!pr.success) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected statement after 'if'"); }
+		if(pr.node.type != e_node_compound)
+		{
+			reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected compound statement after 'if''");
+		}
 		tokenizer = pr.tokenizer;
 		result.node.nif.body = make_node(pr.node);
 	}
@@ -223,13 +242,13 @@ func s_parse_result parse_statement(s_tokenizer tokenizer)
 	{
 		result.node.type = e_node_return;
 
-		pr = parse_expr(tokenizer, 0);
+		pr = parse_expr(tokenizer, 0, reporter);
 		if(pr.success)
 		{
 			tokenizer = pr.tokenizer;
 			result.node.nreturn.expr = make_node(pr.node);
 		}
-		if(!consume_token(";", &tokenizer)) { assert(false); }
+		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected ';' after return"); }
 	}
 
 	else if(consume_token("{", &tokenizer))
@@ -240,8 +259,11 @@ func s_parse_result parse_statement(s_tokenizer tokenizer)
 		while(true)
 		{
 			if(consume_token("}", &tokenizer)) { break; }
-			pr = parse_statement(tokenizer);
-			assert(pr.success);
+			pr = parse_statement(tokenizer, reporter);
+			if(!pr.success)
+			{
+				reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected statement");
+			}
 			tokenizer = pr.tokenizer;
 			target = node_set_and_advance(target, pr.node);
 			compound->statement_count += 1;
@@ -250,12 +272,12 @@ func s_parse_result parse_statement(s_tokenizer tokenizer)
 
 	else
 	{
-		pr = parse_expr(tokenizer, 0);
+		pr = parse_expr(tokenizer, 0, reporter);
 		if(!pr.success) { goto end; }
 		tokenizer = pr.tokenizer;
 		result.node = pr.node;
 
-		if(!consume_token(";", &tokenizer)) { assert(false); }
+		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected ';'"); }
 	}
 
 	result.success = true;
@@ -387,4 +409,38 @@ func b8 peek_assignment_token(s_tokenizer tokenizer, e_node* out_type)
 		}
 	}
 	return false;
+}
+
+void s_error_reporter::warning(int line, char* file, char* str, ...)
+{
+	if(has_warning || has_error) { return; }
+	has_warning = true;
+
+	va_list args;
+	va_start(args, str);
+	vsnprintf(error_str, 255, str, args);
+	va_end(args);
+}
+
+void s_error_reporter::error(int line, char* file, char* str, ...)
+{
+	if(has_error) { return; }
+	has_error = true;
+
+	va_list args;
+	va_start(args, str);
+	vsnprintf(error_str, 255, str, args);
+	va_end(args);
+}
+
+void s_error_reporter::fatal(int line, char* file, char* str, ...)
+{
+	va_list args;
+	va_start(args, str);
+	vsnprintf(error_str, 255, str, args);
+	va_end(args);
+	printf("%s (%i): ", file, line);
+	printf("%s\n", error_str);
+	assert(false);
+	exit(-1);
 }

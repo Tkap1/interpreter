@@ -35,6 +35,7 @@ struct s_type_check_var
 
 struct s_node
 {
+	int line;
 	e_node type;
 	s_node* next;
 	s_type_check_var var_data;
@@ -109,10 +110,21 @@ struct s_parse_result
 	s_node node;
 };
 
+struct s_error_reporter
+{
+	b8 has_error;
+	b8 has_warning;
+	char error_str[256];
+
+	void warning(int line, char* file, char* str, ...);
+	void error(int line, char* file, char* str, ...);
+	void fatal(int line, char* file, char* str, ...);
+};
+
 
 func s_node* parse(s_tokenizer tokenizer);
-func s_parse_result parse_expr(s_tokenizer tokenizer);
-func s_parse_result parse_statement(s_tokenizer tokenizer);
+func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level, s_error_reporter* reporter);
+func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* reporter);
 func s_node* make_node(s_node node);
 func s_node** node_set_and_advance(s_node** target, s_node node);
 func int get_operator_level(char* str);
