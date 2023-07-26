@@ -1,15 +1,7 @@
 
-
-func void foo(int a, int b, int c, int d)
-{
-	print(a);
-	print(b);
-	print(c);
-	print(d);
-}
-
 func int main()
 {
-	foo(69999999, 420, 1, 2);
-	return;
+	int a = 1;
+	int* b = 2;
+	int c = a + b;
 }

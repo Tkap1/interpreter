@@ -32,6 +32,13 @@ int main(int argc, char** argv)
 	argc -= 1;
 	argv += 1;
 
+	// {
+	// 	typedef void (*t_init_window)(int, int, char*);
+	// 	HMODULE dll = LoadLibrary("raylib.dll");
+	// 	t_init_window init_window = (t_init_window)GetProcAddress(dll, "InitWindow");
+	// 	init_window(800, 600, "EmptyGroceryBag");
+	// }
+
 	g_arena = make_lin_arena(1 * c_mb, false);
 	stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
 

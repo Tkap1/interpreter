@@ -25,13 +25,24 @@ func s_node* parse(s_tokenizer tokenizer)
 
 func s_parse_result parse_type(s_tokenizer tokenizer, s_error_reporter* reporter)
 {
+	unreferenced(reporter);
 	s_parse_result result = zero;
 	s_parse_result pr = zero;
 	s_token token = zero;
 	result.node.line = tokenizer.line_num;
+	result.node.type = e_node_type;
 
 	if(!consume_token(e_token_identifier, &tokenizer, &token)) { goto end; }
 	result.node.ntype.name.from_data(token.at, token.length);
+
+	while(true)
+	{
+		if(consume_token("*", &tokenizer))
+		{
+			result.node.ntype.pointer_level += 1;
+		}
+		else { break; }
+	}
 
 	result.success = true;
 	result.tokenizer = tokenizer;
@@ -128,6 +139,8 @@ func s_parse_result parse_func_decl(s_tokenizer tokenizer, s_error_reporter* rep
 
 func s_parse_result parse_sub_expr(s_tokenizer tokenizer, s_error_reporter* reporter)
 {
+	unreferenced(reporter);
+
 	s_parse_result result = zero;
 	s_parse_result pr = zero;
 	s_token token = zero;
@@ -272,6 +285,7 @@ func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* rep
 	s_parse_result pr = zero;
 	s_token token = zero;
 	s_node** target = null;
+	s_parse_result var_decl_pr = zero;
 	auto var_decl = &result.node.var_decl;
 	auto compound = &result.node.compound;
 	auto arithmetic = &result.node.arithmetic;
@@ -279,8 +293,40 @@ func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* rep
 	result.node.line = tokenizer.line_num;
 
 	pr = parse_expr(tokenizer, 0, reporter);
+	var_decl_pr = parse_type(tokenizer, reporter);
+	if(var_decl_pr.success)
+	{
+		s_tokenizer temp_tokenizer = var_decl_pr.tokenizer;
+		if(!consume_token(e_token_identifier, &temp_tokenizer, &token))
+		{
+			var_decl_pr.success = false;
+		}
+	}
 
-	if(pr.success && peek_assignment_token(pr.tokenizer, &assign_type))
+	if(var_decl_pr.success)
+	{
+		tokenizer = var_decl_pr.tokenizer;
+		var_decl->ntype = make_node(var_decl_pr.node);
+
+		result.node.type = e_node_var_decl;
+
+		if(!consume_token(e_token_identifier, &tokenizer, &token)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected identifier"); }
+		var_decl->name.from_data(token.at, token.length);
+
+		if(!consume_token("=", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected '='"); }
+
+		pr = parse_expr(tokenizer, 0, reporter);
+		if(!pr.success)
+		{
+			reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected expression");
+		}
+		tokenizer = pr.tokenizer;
+		var_decl->val = make_node(pr.node);
+
+		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected ';'"); }
+	}
+
+	else if(pr.success && peek_assignment_token(pr.tokenizer, &assign_type))
 	{
 		tokenizer = pr.tokenizer;
 		next_token(&tokenizer);
@@ -316,26 +362,6 @@ func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* rep
 	{
 		result.node.type = e_node_continue;
 		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected ';' after 'continue'"); }
-	}
-
-	else if(consume_token("int", &tokenizer))
-	{
-		result.node.type = e_node_var_decl;
-
-		if(!consume_token(e_token_identifier, &tokenizer, &token)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected identifier"); }
-		var_decl->name.from_data(token.at, token.length);
-
-		if(!consume_token("=", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected '='"); }
-
-		pr = parse_expr(tokenizer, 0, reporter);
-		if(!pr.success)
-		{
-			reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected expression");
-		}
-		tokenizer = pr.tokenizer;
-		var_decl->val = make_node(pr.node);
-
-		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, "TODOFILE", "Expected ';'"); }
 	}
 
 	else if(consume_token("for", &tokenizer))
@@ -563,6 +589,9 @@ func b8 peek_assignment_token(s_tokenizer tokenizer, e_node* out_type)
 
 void s_error_reporter::warning(int line, char* file, char* str, ...)
 {
+	unreferenced(file);
+	unreferenced(line);
+
 	if(has_warning || has_error) { return; }
 	has_warning = true;
 
@@ -574,6 +603,9 @@ void s_error_reporter::warning(int line, char* file, char* str, ...)
 
 void s_error_reporter::error(int line, char* file, char* str, ...)
 {
+	unreferenced(file);
+	unreferenced(line);
+
 	if(has_error) { return; }
 	has_error = true;
 
@@ -591,6 +623,6 @@ void s_error_reporter::fatal(int line, char* file, char* str, ...)
 	va_end(args);
 	printf("%s (%i): ", file, line);
 	printf("%s\n", error_str);
-	// assert(false);
+	assert(false);
 	exit(-1);
 }

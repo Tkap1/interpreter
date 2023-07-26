@@ -28,12 +28,15 @@ enum e_node
 	e_node_func_arg,
 	e_node_break,
 	e_node_continue,
+	e_node_type,
 };
 
 struct s_node;
 struct s_type_check_var
 {
+	int pointer_level;
 	s_node* func_node;
+	s_node* type_node;
 	s64 id;
 	s_str<64> name;
 };
@@ -75,6 +78,7 @@ struct s_node
 		struct
 		{
 			s_str<64> name;
+			s_node* ntype;
 			s_node* val;
 		} var_decl;
 
