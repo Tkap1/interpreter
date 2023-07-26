@@ -74,7 +74,7 @@ func s_node* node_to_func(s_node* node)
 	return null;
 }
 
-func void type_check_expr(s_node* node, s_error_reporter* reporter)
+func void type_check_expr(s_node* node, s_error_reporter* reporter, char* file)
 {
 
 	switch(node->type)
@@ -93,14 +93,14 @@ func void type_check_expr(s_node* node, s_error_reporter* reporter)
 			if(func_node->func_decl.arg_count != node->func_call.arg_count)
 			{
 				reporter->fatal(
-					node->line, "TODOFILE", "Function '%s' expected %i arguments, but got %i",
+					node->line, file, "Function '%s' expected %i arguments, but got %i",
 					func_node->func_decl.name.data, func_node->func_decl.arg_count, node->func_call.arg_count
 				);
 			}
 
 			for_node(arg, node->func_call.args)
 			{
-				type_check_expr(arg, reporter);
+				type_check_expr(arg, reporter, file);
 			}
 			// @Fixme(tkap, 24/07/2023):
 			// node->var_data = get_type_check_var_by_name(node->identifier.name);
@@ -117,8 +117,8 @@ func void type_check_expr(s_node* node, s_error_reporter* reporter)
 		case e_node_divide:
 		case e_node_mod:
 		{
-			type_check_expr(node->arithmetic.left, reporter);
-			type_check_expr(node->arithmetic.right, reporter);
+			type_check_expr(node->arithmetic.left, reporter, file);
+			type_check_expr(node->arithmetic.right, reporter, file);
 
 			s_type_instance left = get_type_instance(node->arithmetic.left);
 			s_type_instance right = get_type_instance(node->arithmetic.right);
@@ -129,7 +129,7 @@ func void type_check_expr(s_node* node, s_error_reporter* reporter)
 			)
 			{
 				reporter->fatal(
-					node->line, "TODOFILE", "Can't TODO '%s' of type '%s' and '%s' of type '%s'",
+					node->line, file, "Can't TODO '%s' of type '%s' and '%s' of type '%s'",
 					node_to_str(node->arithmetic.left), type_instance_to_str(left),
 					node_to_str(node->arithmetic.right), type_instance_to_str(right)
 				);
@@ -139,8 +139,8 @@ func void type_check_expr(s_node* node, s_error_reporter* reporter)
 
 		case e_node_equals:
 		{
-			type_check_expr(node->arithmetic.left, reporter);
-			type_check_expr(node->arithmetic.right, reporter);
+			type_check_expr(node->arithmetic.left, reporter, file);
+			type_check_expr(node->arithmetic.right, reporter, file);
 		} break;
 
 		case e_node_unary:
@@ -151,12 +151,12 @@ func void type_check_expr(s_node* node, s_error_reporter* reporter)
 			{
 				case e_unary_dereference:
 				{
-					type_check_expr(unary->expr, reporter);
+					type_check_expr(unary->expr, reporter, file);
 				} break;
 
 				case e_unary_address_of:
 				{
-					type_check_expr(unary->expr, reporter);
+					type_check_expr(unary->expr, reporter, file);
 				} break;
 
 				invalid_default_case;
@@ -167,7 +167,7 @@ func void type_check_expr(s_node* node, s_error_reporter* reporter)
 	}
 }
 
-func void type_check_statement(s_node* node, s_error_reporter* reporter)
+func void type_check_statement(s_node* node, s_error_reporter* reporter, char* file)
 {
 
 	switch(node->type)
@@ -177,7 +177,7 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter)
 			type_check_push_scope();
 			for_node(statement, node->compound.statements)
 			{
-				type_check_statement(statement, reporter);
+				type_check_statement(statement, reporter, file);
 			}
 			type_check_pop_scope();
 		} break;
@@ -201,13 +201,13 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter)
 			if(!node->var_data.type_node)
 			{
 				reporter->fatal(
-					node->line, "TODOFILE", "Variable '%s' has unknown type '%s'",
+					node->line, file, "Variable '%s' has unknown type '%s'",
 					node->var_decl.name.data, node->var_decl.ntype->ntype.name.data
 				);
 			}
 			node->var_data.pointer_level = node->var_decl.ntype->ntype.pointer_level;
 
-			type_check_expr(node->var_decl.val, reporter);
+			type_check_expr(node->var_decl.val, reporter, file);
 
 			s_type_check_var new_var = node->var_data;
 			{
@@ -226,7 +226,7 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter)
 				)
 				{
 					reporter->fatal(
-						node->line, "TODOFILE", "Can't assign '%s' of type '%s' to '%s' of type '%s'",
+						node->line, file, "Can't assign '%s' of type '%s' to '%s' of type '%s'",
 						node_to_str(node->var_decl.val), type_instance_to_str(right),
 						node->var_decl.name.data, type_instance_to_str(left)
 					);
@@ -239,7 +239,7 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter)
 		{
 			if(node->nreturn.expr)
 			{
-				type_check_expr(node->nreturn.expr, reporter);
+				type_check_expr(node->nreturn.expr, reporter, file);
 			}
 		} break;
 
@@ -263,11 +263,11 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter)
 				add_type_check_var(var);
 			}
 
-			type_check_expr(node->nfor.expr, reporter);
+			type_check_expr(node->nfor.expr, reporter, file);
 
 			for_node(arg, node->nfor.body)
 			{
-				type_check_statement(arg, reporter);
+				type_check_statement(arg, reporter, file);
 			}
 
 			type_check_pop_scope();
@@ -277,11 +277,11 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter)
 		{
 			type_check_push_scope();
 
-			type_check_expr(node->nif.expr, reporter);
+			type_check_expr(node->nif.expr, reporter, file);
 
 			for_node(arg, node->nif.body)
 			{
-				type_check_statement(arg, reporter);
+				type_check_statement(arg, reporter, file);
 			}
 
 			type_check_pop_scope();
@@ -291,8 +291,8 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter)
 		case e_node_times_equals:
 		case e_node_assign:
 		{
-			type_check_expr(node->arithmetic.left, reporter);
-			type_check_expr(node->arithmetic.right, reporter);
+			type_check_expr(node->arithmetic.left, reporter, file);
+			type_check_expr(node->arithmetic.right, reporter, file);
 
 			s_type_instance left = get_type_instance(node->arithmetic.left);
 			s_type_instance right = get_type_instance(node->arithmetic.right);
@@ -303,7 +303,7 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter)
 			)
 			{
 				reporter->fatal(
-					node->line, "TODOFILE", "Can't TODO '%s' of type '%s' to '%s' of type '%s'",
+					node->line, file, "Can't TODO '%s' of type '%s' to '%s' of type '%s'",
 					node_to_str(node->arithmetic.right), type_instance_to_str(right),
 					node_to_str(node->arithmetic.left), type_instance_to_str(left)
 				);
@@ -313,7 +313,7 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter)
 
 		default:
 		{
-			type_check_expr(node, reporter);
+			type_check_expr(node, reporter, file);
 		} break;
 	}
 }
@@ -391,7 +391,7 @@ func void type_check(s_node* ast, char* file)
 
 				}
 
-				type_check_statement(func_decl->body, &reporter);
+				type_check_statement(func_decl->body, &reporter, file);
 				type_check_pop_scope();
 			} break;
 		}
