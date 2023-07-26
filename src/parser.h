@@ -29,6 +29,13 @@ enum e_node
 	e_node_break,
 	e_node_continue,
 	e_node_type,
+	e_node_unary,
+};
+
+enum e_unary
+{
+	e_unary_dereference,
+	e_unary_address_of,
 };
 
 struct s_node;
@@ -39,6 +46,12 @@ struct s_type_check_var
 	s_node* type_node;
 	s64 id;
 	s_str<64> name;
+};
+
+struct s_type_instance
+{
+	int pointer_level;
+	s_node* type;
 };
 
 struct s_node
@@ -120,6 +133,7 @@ struct s_node
 
 		struct
 		{
+			int id;
 			int pointer_level;
 			s_str<64> name;
 		} ntype;
@@ -129,6 +143,12 @@ struct s_node
 			s_node* type;
 			s_str<64> name;
 		} func_arg;
+
+		struct
+		{
+			e_unary type;
+			s_node* expr;
+		} unary;
 
 		struct
 		{
@@ -157,13 +177,15 @@ struct s_error_reporter
 };
 
 
-func s_node* parse(s_tokenizer tokenizer);
-func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level, s_error_reporter* reporter);
-func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* reporter);
+func s_node* parse(s_tokenizer tokenizer, char* file);
+func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level, s_error_reporter* reporter, char* file);
+func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* reporter, char* file);
 func s_node* make_node(s_node node);
 func s_node** node_set_and_advance(s_node** target, s_node node);
 func int get_operator_level(char* str);
 func void print_parser_expr(s_node* node);
 func b8 peek_assignment_token(s_tokenizer tokenizer, e_node* out_type);
-func s_parse_result parse_type(s_tokenizer tokenizer, s_error_reporter* reporter);
-func s_parse_result parse_func_decl(s_tokenizer tokenizer, s_error_reporter* reporter);
+func s_parse_result parse_type(s_tokenizer tokenizer, s_error_reporter* reporter, char* file);
+func s_parse_result parse_func_decl(s_tokenizer tokenizer, s_error_reporter* reporter, char* file);
+func int get_unary_operator_level(char* str);
+func b8 token_is_keyword(s_token token);

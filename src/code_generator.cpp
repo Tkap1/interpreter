@@ -72,6 +72,27 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 			add_expr({.type = e_expr_cmp_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
 		} break;
 
+		case e_node_unary:
+		{
+			auto unary = &node->unary;
+			switch(unary->type)
+			{
+				case e_unary_dereference:
+				{
+					s64 var_id = get_var_id(unary->expr);
+					add_expr({.type = e_expr_var_to_reg_dereference, .a = {.val = base_register}, .b = {.val = var_id}});
+				} break;
+
+				case e_unary_address_of:
+				{
+					s64 var_id = get_var_id(unary->expr);
+					add_expr({.type = e_expr_lea_reg_var, .a = {.val = base_register}, .b = {.val = var_id}});
+				} break;
+				invalid_default_case;
+
+			}
+		} break;
+
 		invalid_default_case;
 	}
 
@@ -301,4 +322,18 @@ func void generate_code(s_node* ast)
 func int add_expr(s_expr expr)
 {
 	return g_exprs.add(expr);
+}
+
+func s64 get_var_id(s_node* node)
+{
+	switch(node->type)
+	{
+		case e_node_identifier:
+		{
+			return node->var_data.id;
+		} break;
+
+		invalid_default_case;
+	}
+	return -1;
 }

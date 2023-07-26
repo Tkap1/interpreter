@@ -54,8 +54,8 @@ int main(int argc, char** argv)
 		tokenizer.at = read_file_quick("input.tk", &g_arena);
 		if(tokenizer.at)
 		{
-			s_node* ast = parse(tokenizer);
-			type_check(ast);
+			s_node* ast = parse(tokenizer, "input.tk");
+			type_check(ast, "input.tk");
 			generate_code(ast);
 		}
 
@@ -134,9 +134,9 @@ func s64 parse_file_and_execute(char* file)
 	tokenizer.at = read_file_quick(file, &g_arena);
 	if(!tokenizer.at) { return -1; }
 
-	s_node* ast = parse(tokenizer);
+	s_node* ast = parse(tokenizer, file);
 	if(!ast) { return -1; }
-	type_check(ast);
+	type_check(ast, file);
 	generate_code(ast);
 
 	while(g_expr_index < g_exprs.count)
@@ -153,6 +153,13 @@ func s64 execute_expr(s_expr expr)
 	s64 result = g_expr_index + 1;
 	switch(expr.type)
 	{
+
+		case e_expr_lea_reg_var:
+		{
+			dprint("lea %s var%lli\n", register_to_str(expr.a.val), expr.b.val);
+			s_var* var = get_var(expr.b.val);
+			g_registers[expr.a.val].ptr = var;
+		} break;
 
 		case e_expr_call:
 		{
@@ -352,6 +359,19 @@ func s64 execute_expr(s_expr expr)
 				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val
 			);
 			g_registers[expr.a.val].val_s64 = var.val;
+		} break;
+
+		// @TODO(tkap, 26/07/2023): Pretty sure this doesn't work with pointer level > 1. We probably need something in the variables that
+		// tells us their pointer level?
+		case e_expr_var_to_reg_dereference:
+		{
+			s_var var = *get_var(expr.b.val);
+			dprint(
+				"mov %s(%lli) [%lli]\n",
+				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val
+			);
+			s_var* other = (s_var*)var.val_ptr;
+			g_registers[expr.a.val].val_s64 = other->val;
 		} break;
 
 		case e_expr_add_reg_reg:

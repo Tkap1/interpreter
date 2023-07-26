@@ -120,20 +120,18 @@ func void type_check_expr(s_node* node, s_error_reporter* reporter)
 			type_check_expr(node->arithmetic.left, reporter);
 			type_check_expr(node->arithmetic.right, reporter);
 
-			if(node->arithmetic.left->var_data.type_node->ntype.id != node->arithmetic.right->var_data.type_node->ntype.id)
+			s_type_instance left = get_type_instance(node->arithmetic.left);
+			s_type_instance right = get_type_instance(node->arithmetic.right);
+
+			if(
+				get_type_id(left) != get_type_id(right) ||
+				left.pointer_level != right.pointer_level
+			)
 			{
 				reporter->fatal(
 					node->line, "TODOFILE", "Can't TODO '%s' of type '%s' and '%s' of type '%s'",
-					node_to_str(node->arithmetic.left), node->arithmetic.left->var_data.type_node->ntype.name.data,
-					node_to_str(node->arithmetic.right), node->arithmetic.right->var_data.type_node->ntype.name.data
-				);
-			}
-			if(node->arithmetic.left->var_data.pointer_level != node->arithmetic.right->var_data.pointer_level)
-			{
-				reporter->fatal(
-					node->line, "TODOFILE", "Can't TODO '%s' of type '%s' and '%s' of type '%s'",
-					node_to_str(node->arithmetic.left), node->arithmetic.left->var_data.type_node->ntype.name.data,
-					node_to_str(node->arithmetic.right), node->arithmetic.right->var_data.type_node->ntype.name.data
+					node_to_str(node->arithmetic.left), type_instance_to_str(left),
+					node_to_str(node->arithmetic.right), type_instance_to_str(right)
 				);
 			}
 
@@ -143,6 +141,26 @@ func void type_check_expr(s_node* node, s_error_reporter* reporter)
 		{
 			type_check_expr(node->arithmetic.left, reporter);
 			type_check_expr(node->arithmetic.right, reporter);
+		} break;
+
+		case e_node_unary:
+		{
+
+			auto unary = &node->unary;
+			switch(unary->type)
+			{
+				case e_unary_dereference:
+				{
+					type_check_expr(unary->expr, reporter);
+				} break;
+
+				case e_unary_address_of:
+				{
+					type_check_expr(unary->expr, reporter);
+				} break;
+
+				invalid_default_case;
+			}
 		} break;
 
 		invalid_default_case;
@@ -191,11 +209,30 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter)
 
 			type_check_expr(node->var_decl.val, reporter);
 
+			s_type_check_var new_var = node->var_data;
 			{
-				s_type_check_var var = node->var_data;
-				var.name = node->var_decl.name;
-				add_type_check_var(var);
+				new_var.name = node->var_decl.name;
+				add_type_check_var(new_var);
 			}
+
+			{
+				assert(new_var.type_node);
+				s_type_instance left = {.pointer_level = new_var.pointer_level, .type = new_var.type_node};
+				s_type_instance right = get_type_instance(node->var_decl.val);
+
+				if(
+					get_type_id(left) != get_type_id(right) ||
+					left.pointer_level != right.pointer_level
+				)
+				{
+					reporter->fatal(
+						node->line, "TODOFILE", "Can't assign '%s' of type '%s' to '%s' of type '%s'",
+						node_to_str(node->var_decl.val), type_instance_to_str(right),
+						node->var_decl.name.data, type_instance_to_str(left)
+					);
+				}
+			}
+
 		} break;
 
 		case e_node_return:
@@ -213,6 +250,7 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter)
 			// @Note(tkap, 24/07/2023): Add "it" variable
 			{
 				s_type_check_var var = zero;
+				var.type_node = get_type_by_name("int");
 				var.id = g_type_check_data.next_var_id++;
 				if(node->nfor.name.len > 0)
 				{
@@ -255,6 +293,22 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter)
 		{
 			type_check_expr(node->arithmetic.left, reporter);
 			type_check_expr(node->arithmetic.right, reporter);
+
+			s_type_instance left = get_type_instance(node->arithmetic.left);
+			s_type_instance right = get_type_instance(node->arithmetic.right);
+
+			if(
+				get_type_id(left) != get_type_id(right) ||
+				left.pointer_level != right.pointer_level
+			)
+			{
+				reporter->fatal(
+					node->line, "TODOFILE", "Can't TODO '%s' of type '%s' to '%s' of type '%s'",
+					node_to_str(node->arithmetic.right), type_instance_to_str(right),
+					node_to_str(node->arithmetic.left), type_instance_to_str(left)
+				);
+			}
+
 		} break;
 
 		default:
@@ -285,7 +339,7 @@ func b8 type_check_func_decl_arg(s_node* node)
 	return true;
 }
 
-func void type_check(s_node* ast)
+func void type_check(s_node* ast, char* file)
 {
 	assert(ast);
 
@@ -365,20 +419,129 @@ func void type_check_pop_scope()
 
 func char* node_to_str(s_node* node)
 {
+	s_str_sbuilder<1024> builder;
+	node_to_str_(node, &builder);
+	return format_text("%s", builder.cstr());
+}
+
+func void node_to_str_(s_node* node, s_str_sbuilder<1024>* builder)
+{
 	switch(node->type)
 	{
 		case e_node_identifier:
 		{
-			return node->identifier.name.data;
-		};
+			builder->add("%s", node->identifier.name.data);
+		} break;
 
 		case e_node_integer:
 		{
-			return format_text("%lli", node->integer.val);
-		};
+			builder->add("%lli", node->integer.val);
+		} break;
 
-		// @Fixme(tkap, 26/07/2023):
-		// invalid_default_case;
+		case e_node_unary:
+		{
+			auto unary = &node->unary;
+			switch(unary->type)
+			{
+				case e_unary_address_of:
+				{
+					builder->add("&");
+					node_to_str_(unary->expr, builder);
+				} break;
+
+				invalid_default_case;
+			}
+
+		} break;
+
+		invalid_default_case;
 	}
-	return "TODO";
+}
+
+func s_type_instance get_type_instance(s_node* node)
+{
+	s_type_instance result = zero;
+	switch(node->type)
+	{
+		case e_node_integer:
+		{
+			s_node* temp = get_type_by_name("int");
+			result.type = temp;
+		} break;
+
+		case e_node_identifier:
+		{
+			s_type_check_var var = get_type_check_var_by_name(node->identifier.name);
+			result.type = var.type_node;
+			result.pointer_level = var.pointer_level;
+		} break;
+
+		case e_node_add:
+		case e_node_subtract:
+		case e_node_multiply:
+		case e_node_divide:
+		case e_node_mod:
+		{
+			s_type_instance left = get_type_instance(node->arithmetic.left);
+			s_type_instance right = get_type_instance(node->arithmetic.right);
+
+			// @Fixme(tkap, 26/07/2023): shouldnt be an assert
+			assert(left.type->ntype.id == right.type->ntype.id);
+			assert(left.pointer_level == right.pointer_level);
+
+			return left;
+		} break;
+
+		case e_node_unary:
+		{
+			auto unary = &node->unary;
+			switch(unary->type)
+			{
+				case e_unary_dereference:
+				{
+					result = get_type_instance(unary->expr);
+					result.pointer_level -= 1;
+					assert(result.pointer_level >= 0);
+				} break;
+
+				case e_unary_address_of:
+				{
+					result = get_type_instance(unary->expr);
+					result.pointer_level += 1;
+					assert(result.pointer_level > 0);
+				} break;
+
+				invalid_default_case;
+			}
+		} break;
+
+		invalid_default_case;
+	}
+	return result;
+}
+
+func s_node* get_type_by_name(char* str)
+{
+	foreach(type_i, type, g_type_check_data.types)
+	{
+		if(type->ntype.name.equals(str)) { return type; }
+	}
+	return null;
+}
+
+func int get_type_id(s_type_instance type_instance)
+{
+	assert(type_instance.type);
+	return type_instance.type->ntype.id;
+}
+
+func char* type_instance_to_str(s_type_instance type_instance)
+{
+	s_str_sbuilder<1024> builder;
+	builder.add(type_instance.type->ntype.name.data);
+	for(int i = 0; i < type_instance.pointer_level; i++)
+	{
+		builder.add("*");
+	}
+	return format_text("%s", builder.cstr());
 }

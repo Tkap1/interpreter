@@ -68,6 +68,8 @@ enum e_expr
 	e_expr_push_reg,
 	e_expr_pop_reg,
 	e_expr_pop_var,
+	e_expr_lea_reg_var,
+	e_expr_var_to_reg_dereference,
 };
 
 enum e_operand
@@ -98,3 +100,4 @@ struct s_expr
 
 func int add_expr(s_expr expr);
 func void generate_code(s_node* ast);
+func s64 get_var_id(s_node* node);

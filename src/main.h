@@ -12,13 +12,19 @@
 union s_register
 {
 	s64 val_s64;
+	void* ptr;
 };
 
 
+// @TODO(tkap, 26/07/2023): Do we need data that tells us if this is a pointer????
 struct s_var
 {
 	s64 id;
-	s64 val;
+	union
+	{
+		s64 val;
+		s64 val_ptr;
+	};
 };
 
 struct s_code_exec_data
