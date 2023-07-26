@@ -1,4 +1,5 @@
 
+
 func void foo(int a, int b, int c, int d)
 {
 	print(a);
@@ -9,5 +10,6 @@ func void foo(int a, int b, int c, int d)
 
 func int main()
 {
-	foo(69, 420, 1, 2);
+	foo(69999999, 420, 1, 2);
+	return;
 }

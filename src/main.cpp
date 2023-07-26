@@ -57,7 +57,7 @@ int main(int argc, char** argv)
 			g_expr_index = execute_expr(g_exprs[g_expr_index]);
 			if(g_expr_index == c_return_value) { break; }
 		}
-		printf("------\n");
+		// printf("------\n");
 		// print_exprs();
 		// printf("@@@@@@\n");
 
@@ -625,6 +625,17 @@ func void print_exprs()
 			case e_expr_call:
 			{
 				printf("call %lli\n", expr.a.val);
+			} break;
+
+			case e_expr_push_reg:
+			{
+				printf("push %s\n", register_to_str(expr.a.val));
+			} break;
+
+			case e_expr_pop_var:
+			{
+				s_var var = *get_var(expr.a.val);
+				printf("pop var%lli\n", var.id);
 			} break;
 
 
