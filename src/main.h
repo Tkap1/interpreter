@@ -21,6 +21,11 @@ struct s_var
 	s64 val;
 };
 
+struct s_code_exec_data
+{
+	s_sarray<s64, 1024> stack;
+};
+
 
 func s64 execute_expr(s_expr expr);
 func s_var* get_var(s64 id);

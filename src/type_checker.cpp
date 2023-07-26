@@ -40,7 +40,7 @@ func s_node* node_to_func(s_node* node)
 	return null;
 }
 
-func void type_check_expr(s_node* node)
+func void type_check_expr(s_node* node, s_error_reporter* reporter)
 {
 
 	switch(node->type)
@@ -56,9 +56,17 @@ func void type_check_expr(s_node* node)
 			assert(func_node);
 			node->var_data.func_node = func_node;
 
+			if(func_node->func_decl.arg_count != node->func_call.arg_count)
+			{
+				reporter->fatal(
+					node->line, "TODOFILE", "Function '%s' expected %i arguments, but got %i",
+					func_node->func_decl.name.data, func_node->func_decl.arg_count, node->func_call.arg_count
+				);
+			}
+
 			for_node(arg, node->func_call.args)
 			{
-				type_check_expr(arg);
+				type_check_expr(arg, reporter);
 			}
 			// @Fixme(tkap, 24/07/2023):
 			// node->var_data = get_type_check_var_by_name(node->identifier.name);
@@ -75,21 +83,21 @@ func void type_check_expr(s_node* node)
 		case e_node_divide:
 		case e_node_mod:
 		{
-			type_check_expr(node->arithmetic.left);
-			type_check_expr(node->arithmetic.right);
+			type_check_expr(node->arithmetic.left, reporter);
+			type_check_expr(node->arithmetic.right, reporter);
 		} break;
 
 		case e_node_equals:
 		{
-			type_check_expr(node->arithmetic.left);
-			type_check_expr(node->arithmetic.right);
+			type_check_expr(node->arithmetic.left, reporter);
+			type_check_expr(node->arithmetic.right, reporter);
 		} break;
 
 		invalid_default_case;
 	}
 }
 
-func void type_check_statement(s_node* node)
+func void type_check_statement(s_node* node, s_error_reporter* reporter)
 {
 
 	switch(node->type)
@@ -99,7 +107,7 @@ func void type_check_statement(s_node* node)
 			type_check_push_scope();
 			for_node(statement, node->compound.statements)
 			{
-				type_check_statement(statement);
+				type_check_statement(statement, reporter);
 			}
 			type_check_pop_scope();
 		} break;
@@ -119,7 +127,7 @@ func void type_check_statement(s_node* node)
 		{
 			node->var_data.id = g_type_check_data.next_id++;
 
-			type_check_expr(node->var_decl.val);
+			type_check_expr(node->var_decl.val, reporter);
 
 			{
 				s_type_check_var var = zero;
@@ -133,7 +141,7 @@ func void type_check_statement(s_node* node)
 		{
 			if(node->nreturn.expr)
 			{
-				type_check_expr(node->nreturn.expr);
+				type_check_expr(node->nreturn.expr, reporter);
 			}
 		} break;
 
@@ -156,11 +164,11 @@ func void type_check_statement(s_node* node)
 				add_type_check_var(var);
 			}
 
-			type_check_expr(node->nfor.expr);
+			type_check_expr(node->nfor.expr, reporter);
 
 			for_node(arg, node->nfor.body)
 			{
-				type_check_statement(arg);
+				type_check_statement(arg, reporter);
 			}
 
 			type_check_pop_scope();
@@ -170,11 +178,11 @@ func void type_check_statement(s_node* node)
 		{
 			type_check_push_scope();
 
-			type_check_expr(node->nif.expr);
+			type_check_expr(node->nif.expr, reporter);
 
 			for_node(arg, node->nif.body)
 			{
-				type_check_statement(arg);
+				type_check_statement(arg, reporter);
 			}
 
 			type_check_pop_scope();
@@ -184,13 +192,13 @@ func void type_check_statement(s_node* node)
 		case e_node_times_equals:
 		case e_node_assign:
 		{
-			type_check_expr(node->arithmetic.left);
-			type_check_expr(node->arithmetic.right);
+			type_check_expr(node->arithmetic.left, reporter);
+			type_check_expr(node->arithmetic.right, reporter);
 		} break;
 
 		default:
 		{
-			type_check_expr(node);
+			type_check_expr(node, reporter);
 		} break;
 	}
 }
@@ -219,11 +227,14 @@ func void type_check(s_node* ast)
 {
 	assert(ast);
 
+	s_error_reporter reporter = zero;
+
 	{
 		s_node f = zero;
 		f.type = e_node_func_decl;
 		f.func_decl.external = true;
 		f.func_decl.name.from_cstr("print");
+		f.func_decl.arg_count = 1; // @Fixme(tkap, 26/07/2023):
 		f.func_decl.id = g_type_check_data.next_func_id++;
 		g_type_check_data.funcs.add(f);
 	}
@@ -249,7 +260,7 @@ func void type_check(s_node* ast)
 
 				}
 
-				type_check_statement(func_decl->body);
+				type_check_statement(func_decl->body, &reporter);
 				type_check_pop_scope();
 			} break;
 		}

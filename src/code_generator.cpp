@@ -22,6 +22,13 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 			}
 			else
 			{
+				int i = 0;
+				for_node(expr, node->func_call.args)
+				{
+					generate_expr(expr, base_register + i);
+					add_expr({.type = e_expr_push_reg, .a = {.val = base_register + i}});
+					i += 1;
+				}
 				add_expr({.type = e_expr_call, .a = {.val = node->var_data.func_node->func_decl.id}});
 			}
 		} break;
@@ -266,6 +273,8 @@ func void generate_code(s_node* ast)
 					g_exprs[0].a.val = func_decl->id;
 				}
 
+				g_func_first_expr_index[func_decl->id] = g_exprs.count;
+
 				for_node(arg, func_decl->args)
 				{
 					s_var var = zero;
@@ -273,7 +282,13 @@ func void generate_code(s_node* ast)
 					g_vars.add(var);
 				}
 
-				g_func_first_expr_index[func_decl->id] = g_exprs.count;
+				// @Note(tkap, 26/07/2023): Pop into arguments in reverse
+				for(int i = 0; i < func_decl->arg_count; i++)
+				{
+					int index = g_vars.count - 1 - i;
+					assert(index >= 0);
+					add_expr({.type = e_expr_pop_var, .a = {.val = index}});
+				}
 
 				generate_statement(func_decl->body, e_register_eax);
 				add_expr({.type = e_expr_return});

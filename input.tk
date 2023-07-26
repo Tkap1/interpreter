@@ -1,10 +1,13 @@
 
-func void foo(int a)
+func void foo(int a, int b, int c, int d)
 {
 	print(a);
+	print(b);
+	print(c);
+	print(d);
 }
 
 func int main()
 {
-	foo(77);
+	foo(69, 420, 1, 2);
 }

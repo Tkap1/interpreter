@@ -65,6 +65,9 @@ enum e_expr
 	e_expr_add_reg_reg,
 	e_expr_return,
 	e_expr_call,
+	e_expr_push_reg,
+	e_expr_pop_reg,
+	e_expr_pop_var,
 };
 
 enum e_operand

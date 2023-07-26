@@ -20,6 +20,7 @@ global volatile int g_input_edited;
 global s_lin_arena g_arena;
 global s_type_check_data g_type_check_data = zero;
 global s_code_gen_data g_code_gen_data;
+global s_code_exec_data g_code_exec_data;
 global HANDLE stdout_handle;
 
 #include "parser.cpp"
@@ -151,6 +152,25 @@ func s64 execute_expr(s_expr expr)
 			g_call_stack.add(result);
 			dprint("call %lli\n", expr.a.val);
 			result = g_func_first_expr_index[expr.a.val];
+		} break;
+
+		case e_expr_push_reg:
+		{
+			dprint("push %s(%lli)\n", register_to_str(expr.a.val), g_registers[expr.a.val].val_s64);
+			g_code_exec_data.stack.add(g_registers[expr.a.val].val_s64);
+		} break;
+
+		case e_expr_pop_reg:
+		{
+			dprint("pop %s(%lli)\n", register_to_str(expr.a.val), g_registers[expr.a.val].val_s64);
+			g_registers[expr.a.val].val_s64 = g_code_exec_data.stack.pop();
+		} break;
+
+		case e_expr_pop_var:
+		{
+			s_var* var = get_var(expr.a.val);
+			dprint("pop var%lli(%lli)\n", var->id, var->val);
+			var->val = g_code_exec_data.stack.pop();
 		} break;
 
 		case e_expr_cmp:
@@ -660,5 +680,6 @@ func void reset_globals()
 	g_type_check_data = zero;
 	g_code_gen_data = zero;
 	g_call_stack.count = 0;
+	g_code_exec_data = zero;
 	memset(g_registers.elements, 0, sizeof(s64) * e_register_count);
 }

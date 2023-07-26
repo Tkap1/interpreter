@@ -591,6 +591,6 @@ void s_error_reporter::fatal(int line, char* file, char* str, ...)
 	va_end(args);
 	printf("%s (%i): ", file, line);
 	printf("%s\n", error_str);
-	assert(false);
+	// assert(false);
 	exit(-1);
 }
