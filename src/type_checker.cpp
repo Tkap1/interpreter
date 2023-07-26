@@ -96,10 +96,12 @@ func void type_check_statement(s_node* node)
 	{
 		case e_node_compound:
 		{
+			type_check_push_scope();
 			for_node(statement, node->compound.statements)
 			{
 				type_check_statement(statement);
 			}
+			type_check_pop_scope();
 		} break;
 
 		case e_node_break:
@@ -137,7 +139,7 @@ func void type_check_statement(s_node* node)
 
 		case e_node_for:
 		{
-			g_type_check_data.curr_scope += 1;
+			type_check_push_scope();
 
 			// @Note(tkap, 24/07/2023): Add "it" variable
 			{
@@ -160,12 +162,13 @@ func void type_check_statement(s_node* node)
 			{
 				type_check_statement(arg);
 			}
-			g_type_check_data.curr_scope -= 1;
+
+			type_check_pop_scope();
 		} break;
 
 		case e_node_if:
 		{
-			g_type_check_data.curr_scope += 1;
+			type_check_push_scope();
 
 			type_check_expr(node->nif.expr);
 
@@ -173,7 +176,8 @@ func void type_check_statement(s_node* node)
 			{
 				type_check_statement(arg);
 			}
-			g_type_check_data.curr_scope -= 1;
+
+			type_check_pop_scope();
 		} break;
 
 		case e_node_plus_equals:
@@ -193,6 +197,21 @@ func void type_check_statement(s_node* node)
 
 func b8 type_check_type(s_node* node)
 {
+	return true;
+}
+
+func b8 type_check_func_decl_arg(s_node* node)
+{
+	type_check_type(node);
+	node->var_data.name = node->func_arg.name;
+	node->var_data.id = g_type_check_data.next_id++;
+
+	{
+		s_type_check_var var = zero;
+		var.id = node->var_data.id;
+		var.name = node->func_arg.name;
+		add_type_check_var(var);
+	}
 	return true;
 }
 
@@ -219,15 +238,19 @@ func void type_check(s_node* ast)
 				node->func_decl.id = g_type_check_data.next_func_id++;
 				g_type_check_data.funcs.add(*node);
 
+
 				type_check_type(func_decl->return_type);
 
+				type_check_push_scope();
 				for_node(arg, func_decl->args)
 				{
-					type_check_type(arg);
+					type_check_func_decl_arg(arg);
 					// @TODO(tkap, 25/07/2023): Prevent duplicate argument names, including other arguments, globals, functions, structs, etc...
+
 				}
 
 				type_check_statement(func_decl->body);
+				type_check_pop_scope();
 			} break;
 		}
 	}
@@ -238,4 +261,16 @@ func void add_type_check_var(s_type_check_var var)
 	int* var_count = &g_type_check_data.var_count[g_type_check_data.curr_scope];
 	g_type_check_data.vars[g_type_check_data.curr_scope][*var_count] = var;
 	*var_count += 1;
+}
+
+func void type_check_push_scope()
+{
+	g_type_check_data.curr_scope += 1;
+	g_type_check_data.var_count[g_type_check_data.curr_scope] = 0;
+}
+
+func void type_check_pop_scope()
+{
+	g_type_check_data.var_count[g_type_check_data.curr_scope] = 0;
+	g_type_check_data.curr_scope -= 1;
 }

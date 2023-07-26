@@ -1,15 +1,10 @@
 
+func void foo(int a)
+{
+	print(a);
+}
 
 func int main()
 {
-
-	for < a: 5
-	{
-		for b: 5
-		{
-			print(a);
-			print(b);
-		}
-	}
-
+	foo(77);
 }

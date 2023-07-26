@@ -13,3 +13,5 @@ struct s_type_check_data
 };
 
 func void add_type_check_var(s_type_check_var var);
+func void type_check_push_scope();
+func void type_check_pop_scope();
