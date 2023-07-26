@@ -42,3 +42,4 @@ func char* register_to_str(int reg);
 func void do_tests();
 func s64 parse_file_and_execute(char* file);
 func void reset_globals();
+func s_func get_func_by_id(int id);

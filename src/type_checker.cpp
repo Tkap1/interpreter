@@ -84,6 +84,12 @@ func void type_check_expr(s_node* node, s_error_reporter* reporter, char* file)
 			node->var_data = get_type_check_var_by_name(node->identifier.name);
 		} break;
 
+		case e_node_str:
+		{
+			node->var_data.type_node = get_type_by_name("char");
+			node->var_data.pointer_level = 1;
+		} break;
+
 		case e_node_func_call:
 		{
 			s_node* func_node = node_to_func(node->func_call.left);
@@ -320,13 +326,18 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter, char* f
 
 func b8 type_check_type(s_node* node)
 {
-	unreferenced(node);
+	assert(node->type == e_node_type);
+	s_node* temp = node_to_type(node);
+	node->var_data.id = temp->ntype.id;
+	node->var_data.name = temp->ntype.name;
+	node->var_data.type_node = temp;
+	node->var_data.pointer_level = node->ntype.pointer_level;
 	return true;
 }
 
 func b8 type_check_func_decl_arg(s_node* node)
 {
-	type_check_type(node);
+	type_check_type(node->func_arg.type);
 	node->var_data.name = node->func_arg.name;
 	node->var_data.id = g_type_check_data.next_var_id++;
 
@@ -355,10 +366,12 @@ func void type_check(s_node* ast, char* file)
 		g_type_check_data.funcs.add(f);
 	}
 
+
+	// @TODO(tkap, 26/07/2023): This currently needs to be in the order as the e_type enum
 	{
 		s_node type = zero;
 		type.type = e_node_type;
-		type.ntype.name.from_cstr("char");
+		type.ntype.name.from_cstr("void");
 		type.ntype.id = g_type_check_data.next_type_id++;
 		g_type_check_data.types.add(type);
 	}
@@ -367,6 +380,14 @@ func void type_check(s_node* ast, char* file)
 		s_node type = zero;
 		type.type = e_node_type;
 		type.ntype.name.from_cstr("int");
+		type.ntype.id = g_type_check_data.next_type_id++;
+		g_type_check_data.types.add(type);
+	}
+
+	{
+		s_node type = zero;
+		type.type = e_node_type;
+		type.ntype.name.from_cstr("char");
 		type.ntype.id = g_type_check_data.next_type_id++;
 		g_type_check_data.types.add(type);
 	}
@@ -383,16 +404,18 @@ func void type_check(s_node* ast, char* file)
 
 				type_check_type(func_decl->return_type);
 
-				type_check_push_scope();
-				for_node(arg, func_decl->args)
+				if(!func_decl->external)
 				{
-					type_check_func_decl_arg(arg);
-					// @TODO(tkap, 25/07/2023): Prevent duplicate argument names, including other arguments, globals, functions, structs, etc...
+					type_check_push_scope();
+					for_node(arg, func_decl->args)
+					{
+						type_check_func_decl_arg(arg);
+						// @TODO(tkap, 25/07/2023): Prevent duplicate argument names, including other arguments, globals, functions, structs, etc...
+					}
 
+					type_check_statement(func_decl->body, &reporter, file);
+					type_check_pop_scope();
 				}
-
-				type_check_statement(func_decl->body, &reporter, file);
-				type_check_pop_scope();
 			} break;
 		}
 	}
@@ -469,6 +492,12 @@ func s_type_instance get_type_instance(s_node* node)
 			result.type = temp;
 		} break;
 
+		case e_node_str:
+		{
+			result.type = node->var_data.type_node;
+			result.pointer_level = node->var_data.pointer_level;
+		} break;
+
 		case e_node_identifier:
 		{
 			s_type_check_var var = get_type_check_var_by_name(node->identifier.name);
@@ -513,6 +542,17 @@ func s_type_instance get_type_instance(s_node* node)
 
 				invalid_default_case;
 			}
+		} break;
+
+		case e_node_type:
+		{
+			result.pointer_level = node->var_data.pointer_level;
+			result.type = node;
+		} break;
+
+		case e_node_func_arg:
+		{
+			result = get_type_instance(node->func_arg.type);
 		} break;
 
 		invalid_default_case;

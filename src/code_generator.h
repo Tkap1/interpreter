@@ -5,10 +5,44 @@ struct s_break_index
 	int val;
 };
 
+enum e_type
+{
+	e_type_void,
+	e_type_int,
+	e_type_char,
+};
+
+
+struct s_type
+{
+	int pointer_level;
+	e_type type;
+};
+
+struct s_func
+{
+	int id;
+	void* ptr;
+	s_type return_type;
+	s_sarray<s_type, 16> args;
+};
+
+struct s_dll
+{
+	s_str<64> name;
+	HMODULE handle;
+};
+
 struct s_code_gen_data
 {
 	s_sarray<s_break_index, 1024> break_indices;
 	s_sarray<int, 1024> continue_indices;
+
+	// @TODO(tkap, 26/07/2023): Should be dynamic
+	s_sarray<s_str<128>, 128> str_literals;
+
+	s_sarray<s_func, 128> external_funcs;
+	s_sarray<s_dll, 16> loaded_dlls;
 	s64 next_id;
 };
 
@@ -65,11 +99,13 @@ enum e_expr
 	e_expr_add_reg_reg,
 	e_expr_return,
 	e_expr_call,
+	e_expr_call_external,
 	e_expr_push_reg,
 	e_expr_pop_reg,
 	e_expr_pop_var,
 	e_expr_lea_reg_var,
 	e_expr_var_to_reg_dereference,
+	e_expr_pointer_to_reg,
 };
 
 enum e_operand
@@ -79,9 +115,10 @@ enum e_operand
 	e_operand_immediate,
 };
 
-struct s_foo
+union s_foo
 {
 	s64 val;
+	void* val_ptr;
 };
 
 struct s_gen_data

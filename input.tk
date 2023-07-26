@@ -1,6 +1,8 @@
 
+external_func void InitWindow(int, int, char*) "raylib.dll";
+external_func int printf(char*, int);
+
 func int main()
 {
-	int a = 420;
-	print(a);
+	InitWindow(800, 600, "ARUSEUS");
 }

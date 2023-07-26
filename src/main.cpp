@@ -1,4 +1,5 @@
 
+#include "external/dyncall.h"
 
 #include "tklib.h"
 #include "parser.h"
@@ -32,12 +33,21 @@ int main(int argc, char** argv)
 	argc -= 1;
 	argv += 1;
 
-	// {
-	// 	typedef void (*t_init_window)(int, int, char*);
-	// 	HMODULE dll = LoadLibrary("raylib.dll");
-	// 	t_init_window init_window = (t_init_window)GetProcAddress(dll, "InitWindow");
-	// 	init_window(800, 600, "EmptyGroceryBag");
-	// }
+	{
+		// typedef void (*t_init_window)(int, int, char*);
+		// HMODULE dll = LoadLibrary("raylib.dll");
+		// t_init_window init_window = (t_init_window)GetProcAddress(dll, "InitWindow");
+		// init_window(800, 600, "EmptyGroceryBag");
+
+		// DCCallVM* vm = dcNewCallVM(4096);
+		// dcMode(vm, DC_CALL_C_DEFAULT);
+		// dcReset(vm);
+		// dcArgPointer(vm, "a %i b %i\n");
+		// dcArgInt(vm, 800);
+		// dcArgInt(vm, 600);
+		// dcCallInt(vm, (DCpointer)printf);
+		// dcFree(vm);
+	}
 
 	g_arena = make_lin_arena(1 * c_mb, false);
 	stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -161,11 +171,73 @@ func s64 execute_expr(s_expr expr)
 			g_registers[expr.a.val].ptr = var;
 		} break;
 
+		case e_expr_pointer_to_reg:
+		{
+			// dprint("lea %s var%lli\n", register_to_str(expr.a.val), expr.b.val);
+			dprint("TODO");
+			g_registers[expr.a.val].ptr = expr.b.val_ptr;
+		} break;
+
 		case e_expr_call:
 		{
 			g_call_stack.add(result);
 			dprint("call %lli\n", expr.a.val);
 			result = g_func_first_expr_index[expr.a.val];
+		} break;
+
+		case e_expr_call_external:
+		{
+			s_func f = get_func_by_id(expr.a.val);
+			// @TODO(tkap, 26/07/2023): We don't want to do this whole thing everytime
+			DCCallVM* vm = dcNewCallVM(4096);
+			dcMode(vm, DC_CALL_C_DEFAULT);
+			dcReset(vm);
+
+			int first_pop = g_code_exec_data.stack.count - f.args.count;
+
+			foreach_raw(arg_i, arg, f.args)
+			{
+				s64 val = g_code_exec_data.stack[first_pop];
+				if(arg.pointer_level > 0)
+				{
+					assert(false);
+					// dcArgPointer(vm, ???);
+				}
+				else
+				{
+					switch(arg.type)
+					{
+						case e_type_int:
+						{
+							dcArgInt(vm, (int)val);
+						} break;
+						case e_type_char:
+						{
+							dcArgChar(vm, (char)val);
+						} break;
+
+						invalid_default_case;
+					}
+				}
+				g_code_exec_data.stack.remove_and_shift(first_pop);
+			}
+			// @TODO(tkap, 26/07/2023): return value
+			switch(f.return_type.type)
+			{
+				case e_type_void:
+				{
+					dcCallVoid(vm, (DCpointer)f.ptr);
+				} break;
+
+				case e_type_int:
+				{
+					dcCallInt(vm, (DCpointer)f.ptr);
+				} break;
+
+				invalid_default_case;
+			}
+			dcFree(vm);
+
 		} break;
 
 		case e_expr_push_reg:
@@ -720,4 +792,14 @@ func void reset_globals()
 	g_call_stack.count = 0;
 	g_code_exec_data = zero;
 	memset(g_registers.elements, 0, sizeof(s64) * e_register_count);
+}
+
+func s_func get_func_by_id(int id)
+{
+	foreach_raw(f_i, f, g_code_gen_data.external_funcs)
+	{
+		if(f.id == id) { return f; }
+	}
+	assert(false);
+	return zero;
 }

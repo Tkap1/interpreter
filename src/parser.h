@@ -29,6 +29,7 @@ enum e_node
 	e_node_break,
 	e_node_continue,
 	e_node_type,
+	e_node_str,
 	e_node_unary,
 };
 
@@ -77,6 +78,7 @@ struct s_node
 			s64 id;
 			b8 external;
 			int arg_count;
+			s_str<64> dll_str;
 			s_str<64> name;
 			s_node* return_type;
 			s_node* args;
@@ -87,6 +89,12 @@ struct s_node
 		{
 			s64 val;
 		} integer;
+
+		struct
+		{
+			// @TODO(tkap, 26/07/2023): This needs to be dynamic
+			s_str<128> val;
+		} str;
 
 		struct
 		{

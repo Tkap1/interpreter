@@ -29,8 +29,21 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 					add_expr({.type = e_expr_push_reg, .a = {.val = base_register + i}});
 					i += 1;
 				}
-				add_expr({.type = e_expr_call, .a = {.val = node->var_data.func_node->func_decl.id}});
+				if( node->var_data.func_node->func_decl.external)
+				{
+					add_expr({.type = e_expr_call_external, .a = {.val = node->var_data.func_node->func_decl.id}});
+				}
+				else
+				{
+					add_expr({.type = e_expr_call, .a = {.val = node->var_data.func_node->func_decl.id}});
+				}
 			}
+		} break;
+
+		case e_node_str:
+		{
+			int index = g_code_gen_data.str_literals.add(node->str.val);
+			add_expr({.type = e_expr_pointer_to_reg, .a = {.val = base_register}, .b = {.val_ptr = g_code_gen_data.str_literals[index].data}});
 		} break;
 
 		case e_node_add:
@@ -288,32 +301,81 @@ func void generate_code(s_node* ast)
 			case e_node_func_decl:
 			{
 				auto func_decl = &node->func_decl;
-
-				if(func_decl->name.equals("main"))
+				if(func_decl->external)
 				{
-					g_exprs[0].a.val = func_decl->id;
+					s_type_instance return_type = get_type_instance(node->func_decl.return_type);
+					s_func f = zero;
+					f.id = node->func_decl.id;
+					f.return_type.pointer_level = return_type.pointer_level;
+
+					// @Fixme(tkap, 26/07/2023): I don't think these types match
+					f.return_type.type = (e_type)return_type.type->ntype.id;
+
+					for_node(arg, func_decl->args)
+					{
+						s_type_instance arg_type = get_type_instance(arg);
+						s_type new_arg = zero;
+						new_arg.pointer_level = arg_type.pointer_level;
+						new_arg.type = (e_type)arg_type.type->ntype.id;
+						f.args.add(new_arg);
+					}
+
+					if(node->func_decl.dll_str.len > 0)
+					{
+						b8 already_loaded = false;
+						foreach_raw(dll_i, dll, g_code_gen_data.loaded_dlls)
+						{
+							if(dll.name.equals(&node->func_decl.dll_str))
+							{
+								already_loaded = true;
+								break;
+							}
+						}
+						s_dll new_dll = zero;
+						if(!already_loaded)
+						{
+							new_dll.name = node->func_decl.dll_str;
+							new_dll.handle = LoadLibrary(node->func_decl.dll_str.data);
+							assert(new_dll.handle);
+							g_code_gen_data.loaded_dlls.add(new_dll);
+						}
+						f.ptr = GetProcAddress(new_dll.handle, node->func_decl.name.data);
+					}
+					else
+					{
+						HMODULE dll = GetModuleHandle(null);
+						f.ptr = GetProcAddress(dll, node->func_decl.name.data);
+					}
+
+					g_code_gen_data.external_funcs.add(f);
 				}
-
-				g_func_first_expr_index[func_decl->id] = g_exprs.count;
-
-				for_node(arg, func_decl->args)
+				else
 				{
-					s_var var = zero;
-					var.id = g_id++;
-					g_vars.add(var);
+					if(func_decl->name.equals("main"))
+					{
+						g_exprs[0].a.val = func_decl->id;
+					}
+
+					g_func_first_expr_index[func_decl->id] = g_exprs.count;
+
+					for_node(arg, func_decl->args)
+					{
+						s_var var = zero;
+						var.id = g_id++;
+						g_vars.add(var);
+					}
+
+					// @Note(tkap, 26/07/2023): Pop into arguments in reverse
+					for(int i = 0; i < func_decl->arg_count; i++)
+					{
+						int index = g_vars.count - 1 - i;
+						assert(index >= 0);
+						add_expr({.type = e_expr_pop_var, .a = {.val = index}});
+					}
+
+					generate_statement(func_decl->body, e_register_eax);
+					add_expr({.type = e_expr_return});
 				}
-
-				// @Note(tkap, 26/07/2023): Pop into arguments in reverse
-				for(int i = 0; i < func_decl->arg_count; i++)
-				{
-					int index = g_vars.count - 1 - i;
-					assert(index >= 0);
-					add_expr({.type = e_expr_pop_var, .a = {.val = index}});
-				}
-
-				generate_statement(func_decl->body, e_register_eax);
-				add_expr({.type = e_expr_return});
-
 			} break;
 		}
 	}

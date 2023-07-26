@@ -63,7 +63,10 @@ func s_parse_result parse_func_decl(s_tokenizer tokenizer, s_error_reporter* rep
 	b8 found_comma = true;
 	result.node.line = tokenizer.line_num;
 
-	if(!consume_token("func", &tokenizer)) { goto end; }
+	if(consume_token("func", &tokenizer)) {}
+	else if(consume_token("external_func", &tokenizer)) { result.node.func_decl.external = true; }
+	else { goto end; }
+
 	result.node.type = e_node_func_decl;
 
 	pr = parse_type(tokenizer, reporter);
@@ -106,11 +109,14 @@ func s_parse_result parse_func_decl(s_tokenizer tokenizer, s_error_reporter* rep
 		new_arg.func_arg.type = make_node(pr.node);
 		new_arg.line = tokenizer.line_num;
 
-		if(!consume_token(e_token_identifier, &tokenizer, &token))
+		if(!result.node.func_decl.external)
 		{
-			reporter->fatal(tokenizer.line_num, file, "Expected name after argument type");
+			if(!consume_token(e_token_identifier, &tokenizer, &token))
+			{
+				reporter->fatal(tokenizer.line_num, file, "Expected name after argument type");
+			}
+			new_arg.func_arg.name.from_data(token.at, token.length);
 		}
-		new_arg.func_arg.name.from_data(token.at, token.length);
 
 		target = node_set_and_advance(target, new_arg);
 		result.node.func_decl.arg_count += 1;
@@ -125,13 +131,24 @@ func s_parse_result parse_func_decl(s_tokenizer tokenizer, s_error_reporter* rep
 		}
 	}
 
-	pr = parse_statement(tokenizer, reporter, file);
-	if(!pr.success)
+	if(result.node.func_decl.external)
 	{
-		reporter->fatal(tokenizer.line_num, file, "Expected function body");
+		if(consume_token(e_token_string, &tokenizer, &token))
+		{
+			result.node.func_decl.dll_str.from_data(token.at + 1, token.length - 2);
+		}
+		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, file, "Expected ';'"); }
 	}
-	tokenizer = pr.tokenizer;
-	result.node.func_decl.body = make_node(pr.node);
+	else
+	{
+		pr = parse_statement(tokenizer, reporter, file);
+		if(!pr.success)
+		{
+			reporter->fatal(tokenizer.line_num, file, "Expected function body");
+		}
+		tokenizer = pr.tokenizer;
+		result.node.func_decl.body = make_node(pr.node);
+	}
 
 	result.success = true;
 	result.tokenizer = tokenizer;
@@ -188,6 +205,11 @@ func s_parse_result parse_sub_expr(s_tokenizer tokenizer, s_error_reporter* repo
 	{
 		result.node.type = e_node_integer;
 		result.node.integer.val = token_to_int(token);
+	}
+	else if(consume_token(e_token_string, &tokenizer, &token))
+	{
+		result.node.type = e_node_str;
+		result.node.str.val.from_data(token.at + 1, token.length - 2);
 	}
 	else
 	{
@@ -679,7 +701,7 @@ void s_error_reporter::fatal(int line, char* file, char* str, ...)
 func b8 token_is_keyword(s_token token)
 {
 	constexpr char* keywords[] = {
-		"for", "return", "break", "continue", "func", "if", "else"
+		"for", "return", "break", "continue", "func", "if", "else", "external_func",
 	};
 
 	for(int keyword_i = 0; keyword_i < array_count(keywords); keyword_i++)
