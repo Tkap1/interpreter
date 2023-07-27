@@ -1,9 +1,18 @@
 
+struct s_color
+{
+	u8 r;
+	u8 g;
+	u8 b;
+	u8 a;
+}
+
 external_func void InitWindow(int, int, char*) "raylib.dll";
 external_func void BeginDrawing() "raylib.dll";
 external_func void EndDrawing() "raylib.dll";
 external_func bool WindowShouldClose() "raylib.dll";
 external_func void CloseWindow() "raylib.dll";
+external_func void ClearBackground(s_color) "raylib.dll";
 
 func int main()
 {

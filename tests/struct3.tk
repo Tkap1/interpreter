@@ -1,0 +1,15 @@
+
+
+struct s_foo
+{
+	int a;
+	int b;
+}
+
+func int main()
+{
+	s_foo foo;
+	foo.a = 4;
+	foo.b = 2;
+	return foo.a + foo.b;
+}

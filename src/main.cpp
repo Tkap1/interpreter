@@ -103,10 +103,14 @@ func void do_tests()
 	};
 
 	constexpr s_test_data c_tests[] = {
+		{.file = "tests/struct1.tk", .expected_result = 5},
+		{.file = "tests/struct2.tk", .expected_result = 4},
+		{.file = "tests/struct3.tk", .expected_result = 6},
 		{.file = "tests/factorial.tk", .expected_result = 3628800},
 		{.file = "tests/fibonacci.tk", .expected_result = 55},
 		{.file = "tests/prime.tk", .expected_result = 79},
 		{.file = "tests/break2.tk", .expected_result = 2},
+		{.file = "tests/return_val1.tk", .expected_result = 11},
 	};
 
 	for(int test_i = 0; test_i < array_count(c_tests); test_i++)

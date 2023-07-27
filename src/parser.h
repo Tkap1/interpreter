@@ -31,6 +31,8 @@ enum e_node
 	e_node_type,
 	e_node_str,
 	e_node_unary,
+	e_node_struct,
+	e_node_member_access,
 };
 
 enum e_unary
@@ -89,6 +91,19 @@ struct s_node
 		{
 			s64 val;
 		} integer;
+
+		struct
+		{
+			int* member_count;
+			s_node* members;
+			s_str<64> name;
+		} nstruct;
+
+		struct
+		{
+			s_node* type;
+			s_str<64> name;
+		} struct_member;
 
 		struct
 		{
@@ -197,3 +212,4 @@ func s_parse_result parse_type(s_tokenizer tokenizer, s_error_reporter* reporter
 func s_parse_result parse_func_decl(s_tokenizer tokenizer, s_error_reporter* reporter, char* file);
 func int get_unary_operator_level(char* str);
 func b8 token_is_keyword(s_token token);
+func s_parse_result parse_struct(s_tokenizer tokenizer, s_error_reporter* reporter, char* file);

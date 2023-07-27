@@ -12,7 +12,7 @@ if not exist build\NUL mkdir build
 
 set files=..\src\main.cpp
 set comp=-nologo -std:c++20 -Zc:strictStrings- -W4 -wd4505 -FC -I ../../my_libs -Gm- -GR- -EHa-
-set linker=user32.lib Shell32.lib "..\libdyncall_s.lib" -INCREMENTAL:NO
+set linker=user32.lib Shell32.lib "..\libdyncall_s.lib" -INCREMENTAL:NO -STACK:0x400000,0x400000
 set comp=%comp% -wd 4244
 
 set debug=2

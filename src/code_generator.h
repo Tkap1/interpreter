@@ -11,6 +11,7 @@ enum e_type
 	e_type_int,
 	e_type_char,
 	e_type_bool,
+	e_type_u8,
 };
 
 struct s_type

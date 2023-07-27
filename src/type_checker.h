@@ -8,10 +8,12 @@ struct s_type_check_data
 	s64 next_var_id;
 	s64 next_func_id;
 	s64 next_type_id;
+	s64 next_struct_id;
 	s_type_check_var vars[c_max_scopes][c_max_vars];
 	s_carray<int, c_max_scopes> var_count;
 	s_sarray<s_node, 1024> funcs;
 	s_sarray<s_node, 1024> types;
+	s_sarray<s_node, 1024> structs;
 };
 
 func void add_type_check_var(s_type_check_var var);

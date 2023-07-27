@@ -9,6 +9,15 @@ func s_node* parse(s_tokenizer tokenizer, char* file)
 	while(true)
 	{
 		if(consume_token(e_token_eof, &tokenizer, &token)) { break; }
+
+		pr = parse_struct(tokenizer, &reporter, file);
+		if(pr.success)
+		{
+			tokenizer = pr.tokenizer;
+			target = node_set_and_advance(target, pr.node);
+			continue;
+		}
+
 		pr = parse_func_decl(tokenizer, &reporter, file);
 		if(pr.success)
 		{
@@ -295,6 +304,7 @@ func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level, s_erro
 			{.type = e_node_less_than_or_equal, .str = "<="},
 			{.type = e_node_greater_than, .str = ">"},
 			{.type = e_node_less_than, .str = "<"},
+			{.type = e_node_member_access, .str = "."},
 		};
 
 		e_node type = e_node_invalid;
@@ -326,6 +336,58 @@ func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level, s_erro
 		}
 
 		break;
+	}
+
+	result.success = true;
+	result.tokenizer = tokenizer;
+
+	end:
+	return result;
+}
+
+func s_parse_result parse_struct(s_tokenizer tokenizer, s_error_reporter* reporter, char* file)
+{
+	s_parse_result result = zero;
+	s_parse_result pr = zero;
+	s_token token = zero;
+	s_node member = zero;
+	s_node** member_target = &result.node.nstruct.members;
+
+	if(!consume_token("struct", &tokenizer)) { goto end; }
+	result.node.type = e_node_struct;
+	result.node.line = tokenizer.line_num;
+
+	if(!consume_token(e_token_identifier, &tokenizer, &token))
+	{
+		reporter->fatal(tokenizer.line_num, file, "Expected identifier after 'struct'");
+	}
+	result.node.nstruct.name.from_data(token.at, token.length);
+
+	if(!consume_token("{", &tokenizer)) { reporter->fatal(tokenizer.line_num, file, "Expected '{' after 'struct'"); }
+
+	while(true)
+	{
+		if(consume_token("}", &tokenizer)) { break; }
+
+		// @TODO(tkap, 27/07/2023): parse a member
+		pr = parse_type(tokenizer, reporter);
+		if(!pr.success)
+		{
+			reporter->fatal(tokenizer.line_num, file, "Expected type");
+		}
+		tokenizer = pr.tokenizer;
+		member.struct_member.type = make_node(pr.node);
+
+		if(!consume_token(e_token_identifier, &tokenizer, &token))
+		{
+			reporter->fatal(tokenizer.line_num, file, "Expected identifier struct member's type");
+		}
+		member.struct_member.name.from_data(token.at, token.length);
+
+		member_target = node_set_and_advance(member_target, member);
+		result.node.nstruct.member_count += 1;
+
+		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, file, "Expected ';' after struct member"); }
 	}
 
 	result.success = true;
@@ -369,15 +431,16 @@ func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* rep
 		if(!consume_token(e_token_identifier, &tokenizer, &token)) { reporter->fatal(tokenizer.line_num, file, "Expected identifier"); }
 		var_decl->name.from_data(token.at, token.length);
 
-		if(!consume_token("=", &tokenizer)) { reporter->fatal(tokenizer.line_num, file, "Expected '='"); }
-
-		pr = parse_expr(tokenizer, 0, reporter, file);
-		if(!pr.success)
+		if(consume_token("=", &tokenizer))
 		{
-			reporter->fatal(tokenizer.line_num, file, "Expected expression");
+			pr = parse_expr(tokenizer, 0, reporter, file);
+			if(!pr.success)
+			{
+				reporter->fatal(tokenizer.line_num, file, "Expected expression");
+			}
+			tokenizer = pr.tokenizer;
+			var_decl->val = make_node(pr.node);
 		}
-		tokenizer = pr.tokenizer;
-		var_decl->val = make_node(pr.node);
 
 		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, file, "Expected ';'"); }
 	}
@@ -585,6 +648,13 @@ func int get_operator_level(char* str)
 	)
 	{
 		return 10;
+	}
+
+	if(
+		strcmp(str, ".") == 0
+	)
+	{
+		return 30;
 	}
 
 	assert(false);

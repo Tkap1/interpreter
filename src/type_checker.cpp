@@ -46,6 +46,7 @@ func s_node* node_to_type(s_node* node)
 			return null;
 
 		} break;
+
 		invalid_default_case;
 	}
 	return null;
@@ -213,6 +214,7 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter, char* f
 			}
 			node->var_data.pointer_level = node->var_decl.ntype->ntype.pointer_level;
 
+			// @Fixme(tkap, 27/07/2023): check if we have val
 			type_check_expr(node->var_decl.val, reporter, file);
 
 			s_type_check_var new_var = node->var_data;
@@ -328,6 +330,7 @@ func b8 type_check_type(s_node* node)
 {
 	assert(node->type == e_node_type);
 	s_node* temp = node_to_type(node);
+	assert(temp);
 	node->var_data.id = temp->ntype.id;
 	node->var_data.name = temp->ntype.name;
 	node->var_data.type_node = temp;
@@ -344,6 +347,8 @@ func b8 type_check_func_decl_arg(s_node* node)
 	{
 		s_type_check_var var = zero;
 		var.id = node->var_data.id;
+		var.type_node = node->func_arg.type->var_data.type_node;
+		var.pointer_level = node->func_arg.type->var_data.pointer_level;
 		var.name = node->func_arg.name;
 		add_type_check_var(var);
 	}
@@ -400,6 +405,14 @@ func void type_check(s_node* ast, char* file)
 		g_type_check_data.types.add(type);
 	}
 
+	{
+		s_node type = zero;
+		type.type = e_node_type;
+		type.ntype.name.from_cstr("u8");
+		type.ntype.id = g_type_check_data.next_type_id++;
+		g_type_check_data.types.add(type);
+	}
+
 	for_node(node, ast)
 	{
 		switch(node->type)
@@ -428,6 +441,58 @@ func void type_check(s_node* ast, char* file)
 					type_check_pop_scope();
 				}
 			} break;
+
+			case e_node_struct:
+			{
+				auto nstruct = &node->nstruct;
+				foreach_raw(f_i, f, g_type_check_data.funcs)
+				{
+					if(f.func_decl.name.equals(&nstruct->name))
+					{
+						reporter.fatal(
+							node->line, file, "Struct '%s' cannot have that name because function '%s' already exists",
+							nstruct->name.data, nstruct->name.data
+						);
+					}
+				}
+
+				foreach_raw(type_i, type, g_type_check_data.types)
+				{
+					if(type.ntype.name.equals(&nstruct->name))
+					{
+						reporter.fatal(
+							node->line, file, "Struct '%s' cannot have that name because type '%s' already exists",
+							nstruct->name.data, nstruct->name.data
+						);
+					}
+				}
+
+				foreach_raw(struct2_i, struct2, g_type_check_data.structs)
+				{
+					if(struct2.nstruct.name.equals(&nstruct->name))
+					{
+						reporter.fatal(
+							node->line, file, "Struct '%s' already exists",
+							nstruct->name.data
+						);
+					}
+				}
+
+				for_node(member, nstruct->members)
+				{
+					type_check_type(member->struct_member.type);
+				}
+
+				// @TODO(tkap, 27/07/2023): check if any structs, functions, types, or globals have the same name
+				// @TODO(tkap, 27/07/2023): Check the same for each struct member
+				// @TODO(tkap, 27/07/2023): Check if any struct has the same name as any other
+				// @TODO(tkap, 27/07/2023): Check if the types exists
+
+				// @Fixme(tkap, 27/07/2023): We are not using next_struct_id
+				g_type_check_data.structs.add(*node);
+			} break;
+
+			invalid_default_case;
 		}
 	}
 }
