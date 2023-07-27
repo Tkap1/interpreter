@@ -392,6 +392,14 @@ func void type_check(s_node* ast, char* file)
 		g_type_check_data.types.add(type);
 	}
 
+	{
+		s_node type = zero;
+		type.type = e_node_type;
+		type.ntype.name.from_cstr("bool");
+		type.ntype.id = g_type_check_data.next_type_id++;
+		g_type_check_data.types.add(type);
+	}
+
 	for_node(node, ast)
 	{
 		switch(node->type)
@@ -404,7 +412,8 @@ func void type_check(s_node* ast, char* file)
 
 				type_check_type(func_decl->return_type);
 
-				if(!func_decl->external)
+				// @Fixme(tkap, 26/07/2023): ???? do we need this??
+				// if(!func_decl->external)
 				{
 					type_check_push_scope();
 					for_node(arg, func_decl->args)
@@ -412,8 +421,10 @@ func void type_check(s_node* ast, char* file)
 						type_check_func_decl_arg(arg);
 						// @TODO(tkap, 25/07/2023): Prevent duplicate argument names, including other arguments, globals, functions, structs, etc...
 					}
-
-					type_check_statement(func_decl->body, &reporter, file);
+					if(!func_decl->external)
+					{
+						type_check_statement(func_decl->body, &reporter, file);
+					}
 					type_check_pop_scope();
 				}
 			} break;
@@ -547,7 +558,9 @@ func s_type_instance get_type_instance(s_node* node)
 		case e_node_type:
 		{
 			result.pointer_level = node->var_data.pointer_level;
-			result.type = node;
+
+			// @TODO(tkap, 26/07/2023): maybe??
+			result.type = node->var_data.type_node;
 		} break;
 
 		case e_node_func_arg:

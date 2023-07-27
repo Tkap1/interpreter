@@ -328,23 +328,27 @@ func void generate_code(s_node* ast)
 							if(dll.name.equals(&node->func_decl.dll_str))
 							{
 								already_loaded = true;
+								f.ptr = GetProcAddress(dll.handle, node->func_decl.name.data);
+								assert(f.ptr);
 								break;
 							}
 						}
-						s_dll new_dll = zero;
 						if(!already_loaded)
 						{
+							s_dll new_dll = zero;
 							new_dll.name = node->func_decl.dll_str;
 							new_dll.handle = LoadLibrary(node->func_decl.dll_str.data);
 							assert(new_dll.handle);
 							g_code_gen_data.loaded_dlls.add(new_dll);
+							f.ptr = GetProcAddress(new_dll.handle, node->func_decl.name.data);
+							assert(f.ptr);
 						}
-						f.ptr = GetProcAddress(new_dll.handle, node->func_decl.name.data);
 					}
 					else
 					{
 						HMODULE dll = GetModuleHandle(null);
 						f.ptr = GetProcAddress(dll, node->func_decl.name.data);
+						assert(f.ptr);
 					}
 
 					g_code_gen_data.external_funcs.add(f);

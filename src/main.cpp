@@ -23,6 +23,7 @@ global s_type_check_data g_type_check_data = zero;
 global s_code_gen_data g_code_gen_data;
 global s_code_exec_data g_code_exec_data;
 global HANDLE stdout_handle;
+global DCCallVM* g_vm;
 
 #include "parser.cpp"
 #include "type_checker.cpp"
@@ -33,26 +34,17 @@ int main(int argc, char** argv)
 	argc -= 1;
 	argv += 1;
 
-	{
-		// typedef void (*t_init_window)(int, int, char*);
-		// HMODULE dll = LoadLibrary("raylib.dll");
-		// t_init_window init_window = (t_init_window)GetProcAddress(dll, "InitWindow");
-		// init_window(800, 600, "EmptyGroceryBag");
-
-		// DCCallVM* vm = dcNewCallVM(4096);
-		// dcMode(vm, DC_CALL_C_DEFAULT);
-		// dcReset(vm);
-		// dcArgPointer(vm, "a %i b %i\n");
-		// dcArgInt(vm, 800);
-		// dcArgInt(vm, 600);
-		// dcCallInt(vm, (DCpointer)printf);
-		// dcFree(vm);
-	}
+	g_vm = dcNewCallVM(4096);
+	dcMode(g_vm, DC_CALL_C_DEFAULT);
 
 	g_arena = make_lin_arena(1 * c_mb, false);
 	stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
 
-	// do_tests();
+	if(argc >= 1 && strcmp(argv[0], "test") == 0)
+	{
+		do_tests();
+		return 0;
+	}
 
 	CreateThread(null, 0, watch_for_file_changes, null, 0, null);
 
@@ -61,6 +53,7 @@ int main(int argc, char** argv)
 		reset_globals();
 
 		s_tokenizer tokenizer = zero;
+		my_strcpy(tokenizer.comment_str, sizeof(tokenizer.comment_str), "//");
 		tokenizer.at = read_file_quick("input.tk", &g_arena);
 		if(tokenizer.at)
 		{
@@ -141,6 +134,7 @@ func s64 parse_file_and_execute(char* file)
 	reset_globals();
 
 	s_tokenizer tokenizer = zero;
+	my_strcpy(tokenizer.comment_str, sizeof(tokenizer.comment_str), "//");
 	tokenizer.at = read_file_quick(file, &g_arena);
 	if(!tokenizer.at) { return -1; }
 
@@ -168,14 +162,14 @@ func s64 execute_expr(s_expr expr)
 		{
 			dprint("lea %s var%lli\n", register_to_str(expr.a.val), expr.b.val);
 			s_var* var = get_var(expr.b.val);
-			g_registers[expr.a.val].ptr = var;
+			g_registers[expr.a.val].val_ptr = var;
 		} break;
 
 		case e_expr_pointer_to_reg:
 		{
 			// dprint("lea %s var%lli\n", register_to_str(expr.a.val), expr.b.val);
 			dprint("TODO");
-			g_registers[expr.a.val].ptr = expr.b.val_ptr;
+			g_registers[expr.a.val].val_ptr = expr.b.val_ptr;
 		} break;
 
 		case e_expr_call:
@@ -188,20 +182,17 @@ func s64 execute_expr(s_expr expr)
 		case e_expr_call_external:
 		{
 			s_func f = get_func_by_id(expr.a.val);
-			// @TODO(tkap, 26/07/2023): We don't want to do this whole thing everytime
-			DCCallVM* vm = dcNewCallVM(4096);
-			dcMode(vm, DC_CALL_C_DEFAULT);
-			dcReset(vm);
+
+			dcReset(g_vm);
 
 			int first_pop = g_code_exec_data.stack.count - f.args.count;
 
 			foreach_raw(arg_i, arg, f.args)
 			{
-				s64 val = g_code_exec_data.stack[first_pop];
+				s_val val = g_code_exec_data.stack[first_pop];
 				if(arg.pointer_level > 0)
 				{
-					assert(false);
-					// dcArgPointer(vm, ???);
+					dcArgPointer(g_vm, val.val_ptr);
 				}
 				else
 				{
@@ -209,11 +200,12 @@ func s64 execute_expr(s_expr expr)
 					{
 						case e_type_int:
 						{
-							dcArgInt(vm, (int)val);
+							dcArgInt(g_vm, (int)val.val_s64);
 						} break;
+
 						case e_type_char:
 						{
-							dcArgChar(vm, (char)val);
+							dcArgChar(g_vm, (char)val.val_s64);
 						} break;
 
 						invalid_default_case;
@@ -226,30 +218,30 @@ func s64 execute_expr(s_expr expr)
 			{
 				case e_type_void:
 				{
-					dcCallVoid(vm, (DCpointer)f.ptr);
+					dcCallVoid(g_vm, (DCpointer)f.ptr);
 				} break;
 
 				case e_type_int:
 				{
-					dcCallInt(vm, (DCpointer)f.ptr);
+					dcCallInt(g_vm, (DCpointer)f.ptr);
 				} break;
 
 				invalid_default_case;
 			}
-			dcFree(vm);
+			// dcFree(vm);
 
 		} break;
 
 		case e_expr_push_reg:
 		{
 			dprint("push %s(%lli)\n", register_to_str(expr.a.val), g_registers[expr.a.val].val_s64);
-			g_code_exec_data.stack.add(g_registers[expr.a.val].val_s64);
+			g_code_exec_data.stack.add(g_registers[expr.a.val]);
 		} break;
 
 		case e_expr_pop_reg:
 		{
 			dprint("pop %s(%lli)\n", register_to_str(expr.a.val), g_registers[expr.a.val].val_s64);
-			g_registers[expr.a.val].val_s64 = g_code_exec_data.stack.pop();
+			g_registers[expr.a.val].val_s64 = g_code_exec_data.stack.pop().val_s64;
 		} break;
 
 		case e_expr_pop_var:
@@ -262,15 +254,15 @@ func s64 execute_expr(s_expr expr)
 		case e_expr_cmp:
 		{
 			s_var var = *get_var(expr.a.val);
-			if(var.val == expr.b.val)
+			if(var.val.val_s64 == expr.b.val)
 			{
 				g_flag = e_flag_equal;
 			}
-			else if(var.val > expr.b.val)
+			else if(var.val.val_s64 > expr.b.val)
 			{
 				g_flag = e_flag_greater;
 			}
-			else if(var.val < expr.b.val)
+			else if(var.val.val_s64 < expr.b.val)
 			{
 				g_flag = e_flag_lesser;
 			}
@@ -292,15 +284,15 @@ func s64 execute_expr(s_expr expr)
 		case e_expr_cmp_var_register:
 		{
 			s_var var = *get_var(expr.a.val);
-			if(var.val == g_registers[expr.b.val].val_s64)
+			if(var.val.val_s64 == g_registers[expr.b.val].val_s64)
 			{
 				g_flag = e_flag_equal;
 			}
-			else if(var.val > g_registers[expr.b.val].val_s64)
+			else if(var.val.val_s64 > g_registers[expr.b.val].val_s64)
 			{
 				g_flag = e_flag_greater;
 			}
-			else if(var.val < g_registers[expr.b.val].val_s64)
+			else if(var.val.val_s64 < g_registers[expr.b.val].val_s64)
 			{
 				g_flag = e_flag_lesser;
 			}
@@ -309,15 +301,15 @@ func s64 execute_expr(s_expr expr)
 		case e_expr_cmp_var_immediate:
 		{
 			s_var var = *get_var(expr.a.val);
-			if(var.val == expr.b.val)
+			if(var.val.val_s64 == expr.b.val)
 			{
 				g_flag = e_flag_equal;
 			}
-			else if(var.val > expr.b.val)
+			else if(var.val.val_s64 > expr.b.val)
 			{
 				g_flag = e_flag_greater;
 			}
-			else if(var.val < expr.b.val)
+			else if(var.val.val_s64 < expr.b.val)
 			{
 				g_flag = e_flag_lesser;
 			}
@@ -420,7 +412,7 @@ func s64 execute_expr(s_expr expr)
 				"mov var%lli(%lli) %lli\n",
 				var->id, var->val, expr.b.val
 			);
-			var->val = expr.b.val;
+			var->val.val_s64 = expr.b.val;
 		} break;
 
 		case e_expr_var_to_register:
@@ -430,7 +422,7 @@ func s64 execute_expr(s_expr expr)
 				"mov %s(%lli) %lli\n",
 				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val
 			);
-			g_registers[expr.a.val].val_s64 = var.val;
+			g_registers[expr.a.val].val_s64 = var.val.val_s64;
 		} break;
 
 		// @TODO(tkap, 26/07/2023): Pretty sure this doesn't work with pointer level > 1. We probably need something in the variables that
@@ -442,8 +434,8 @@ func s64 execute_expr(s_expr expr)
 				"mov %s(%lli) [%lli]\n",
 				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val
 			);
-			s_var* other = (s_var*)var.val_ptr;
-			g_registers[expr.a.val].val_s64 = other->val;
+			s_var* other = (s_var*)var.val.val_ptr;
+			g_registers[expr.a.val].val_s64 = other->val.val_s64;
 		} break;
 
 		case e_expr_add_reg_reg:
@@ -462,7 +454,7 @@ func s64 execute_expr(s_expr expr)
 				"add var%lli(%lli) %s(%lli)\n",
 				var->id, var->val, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
 			);
-			var->val += g_registers[expr.b.val].val_s64;
+			var->val.val_s64 += g_registers[expr.b.val].val_s64;
 		} break;
 
 		case e_expr_divide_reg_reg:
@@ -491,7 +483,7 @@ func s64 execute_expr(s_expr expr)
 				"imul2 %s(%lli), %lli\n",
 				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val
 			);
-			g_registers[expr.a.val].val_s64 *= var.val;
+			g_registers[expr.a.val].val_s64 *= var.val.val_s64;
 		} break;
 
 		case e_expr_imul2_reg_reg:
@@ -506,7 +498,7 @@ func s64 execute_expr(s_expr expr)
 		case e_expr_imul3:
 		{
 			s_var var = *get_var(expr.b.val);
-			g_registers[expr.a.val].val_s64 = var.val * expr.c.val;
+			g_registers[expr.a.val].val_s64 = var.val.val_s64 * expr.c.val;
 		} break;
 
 		case e_expr_register_to_var:
@@ -516,7 +508,7 @@ func s64 execute_expr(s_expr expr)
 				"mov var%lli(%lli) %s(%lli)\n",
 				var->id, var->val, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
 			);
-			var->val = g_registers[expr.b.val].val_s64;
+			var->val.val_s64 = g_registers[expr.b.val].val_s64;
 		} break;
 
 		// @Fixme(tkap, 24/07/2023): remove
@@ -533,7 +525,7 @@ func s64 execute_expr(s_expr expr)
 		{
 			s_var* left = get_var(expr.a.val);
 			s_var* right = get_var(expr.b.val);
-			left->val += right->val;
+			left->val.val_s64 += right->val.val_s64;
 		} break;
 
 		case e_expr_print_immediate:
@@ -544,7 +536,7 @@ func s64 execute_expr(s_expr expr)
 		case e_expr_print_var:
 		{
 			s_var* var = get_var(expr.a.val);
-			printf("%lli\n", var->val);
+			printf("%lli\n", var->val.val_s64);
 		} break;
 
 		case e_expr_jump:

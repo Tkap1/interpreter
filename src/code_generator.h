@@ -10,8 +10,8 @@ enum e_type
 	e_type_void,
 	e_type_int,
 	e_type_char,
+	e_type_bool,
 };
-
 
 struct s_type
 {

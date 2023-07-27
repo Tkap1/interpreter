@@ -9,27 +9,26 @@
 #define dprint(...)
 #endif
 
-union s_register
+
+
+union s_val
 {
 	s64 val_s64;
-	void* ptr;
+	void* val_ptr;
 };
 
+typedef s_val s_register;
 
 // @TODO(tkap, 26/07/2023): Do we need data that tells us if this is a pointer????
 struct s_var
 {
 	s64 id;
-	union
-	{
-		s64 val;
-		s64 val_ptr;
-	};
+	s_val val;
 };
 
 struct s_code_exec_data
 {
-	s_sarray<s64, 1024> stack;
+	s_sarray<s_val, 1024> stack;
 };
 
 

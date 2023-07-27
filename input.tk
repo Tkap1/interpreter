@@ -1,8 +1,19 @@
 
 external_func void InitWindow(int, int, char*) "raylib.dll";
-external_func int printf(char*, int);
+external_func void BeginDrawing() "raylib.dll";
+external_func void EndDrawing() "raylib.dll";
+external_func bool WindowShouldClose() "raylib.dll";
 
 func int main()
 {
 	InitWindow(800, 600, "ARUSEUS");
+	for 1000000
+	{
+		if WindowShouldClose() == 1
+		{
+			break;
+		}
+		BeginDrawing();
+		EndDrawing();
+	}
 }
