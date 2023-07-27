@@ -3,6 +3,7 @@ external_func void InitWindow(int, int, char*) "raylib.dll";
 external_func void BeginDrawing() "raylib.dll";
 external_func void EndDrawing() "raylib.dll";
 external_func bool WindowShouldClose() "raylib.dll";
+external_func void CloseWindow() "raylib.dll";
 
 func int main()
 {
@@ -16,4 +17,5 @@ func int main()
 		BeginDrawing();
 		EndDrawing();
 	}
+	CloseWindow();
 }

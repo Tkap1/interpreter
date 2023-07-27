@@ -223,7 +223,14 @@ func s64 execute_expr(s_expr expr)
 
 				case e_type_int:
 				{
-					dcCallInt(g_vm, (DCpointer)f.ptr);
+					s64 func_result = dcCallInt(g_vm, (DCpointer)f.ptr);
+					g_registers[expr.b.val].val_s64 = func_result;
+				} break;
+
+				case e_type_bool:
+				{
+					s64 func_result = dcCallBool(g_vm, (DCpointer)f.ptr);
+					g_registers[expr.b.val].val_s64 = func_result;
 				} break;
 
 				invalid_default_case;

@@ -164,6 +164,8 @@ func s_parse_result parse_sub_expr(s_tokenizer tokenizer, s_error_reporter* repo
 	s_parse_result result = zero;
 	s_parse_result pr = zero;
 	s_token token = zero;
+	b8 found_comma = true;
+	s_node** arg_target = &result.node.func_call.args;
 	result.node.line = tokenizer.line_num;
 
 	struct s_operator
@@ -217,6 +219,43 @@ func s_parse_result parse_sub_expr(s_tokenizer tokenizer, s_error_reporter* repo
 	}
 
 	success:
+	if(consume_token("(", &tokenizer))
+	{
+		s_node temp = zero;
+		temp.type = e_node_func_call;
+		temp.func_call.left = make_node(result.node);
+		result.node = temp;
+
+		while(true)
+		{
+			if(consume_token(")", &tokenizer))	{ break; }
+
+			if(!found_comma)
+			{
+				reporter->fatal(tokenizer.line_num, file, "Expected ')'");
+			}
+
+			pr = parse_expr(tokenizer, 0, reporter, file);
+			if(!pr.success)
+			{
+				reporter->fatal(tokenizer.line_num, file, "Expected expression");
+			}
+			tokenizer = pr.tokenizer;
+			arg_target = node_set_and_advance(arg_target, pr.node);
+			result.node.func_call.arg_count += 1;
+
+			if(consume_token(",", &tokenizer))
+			{
+				found_comma = true;
+			}
+			else
+			{
+				found_comma = false;
+			}
+		}
+	}
+
+
 	result.success = true;
 	result.tokenizer = tokenizer;
 
@@ -230,9 +269,7 @@ func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level, s_erro
 	s_parse_result pr = zero;
 	s_token token = zero;
 	s_node arg = zero;
-	s_node** arg_target = &result.node.func_call.args;
 	auto arithmetic = &result.node.arithmetic;
-	b8 found_comma = true;
 
 	pr = parse_sub_expr(tokenizer, reporter, file);
 	if(!pr.success) { goto end; }
@@ -289,43 +326,6 @@ func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level, s_erro
 		}
 
 		break;
-	}
-
-	if(consume_token("(", &tokenizer))
-	{
-		s_node temp = zero;
-		temp.type = e_node_func_call;
-		temp.func_call.left = make_node(result.node);
-		result.node = temp;
-
-		while(true)
-		{
-			if(consume_token(")", &tokenizer))	{ break; }
-
-			if(!found_comma)
-			{
-				reporter->fatal(tokenizer.line_num, file, "Expected ')'");
-			}
-
-			pr = parse_expr(tokenizer, operator_level, reporter, file);
-			if(!pr.success)
-			{
-				reporter->fatal(tokenizer.line_num, file, "Expected expression");
-			}
-			tokenizer = pr.tokenizer;
-			arg_target = node_set_and_advance(arg_target, pr.node);
-			result.node.func_call.arg_count += 1;
-
-			if(consume_token(",", &tokenizer))
-			{
-				found_comma = true;
-			}
-			else
-			{
-				found_comma = false;
-			}
-
-		}
 	}
 
 	result.success = true;

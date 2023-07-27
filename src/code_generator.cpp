@@ -31,7 +31,7 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 				}
 				if( node->var_data.func_node->func_decl.external)
 				{
-					add_expr({.type = e_expr_call_external, .a = {.val = node->var_data.func_node->func_decl.id}});
+					add_expr({.type = e_expr_call_external, .a = {.val = node->var_data.func_node->func_decl.id}, .b = {.val = base_register}});
 				}
 				else
 				{
@@ -239,6 +239,8 @@ func void generate_statement(s_node* node, int base_register)
 		{
 			if(node->nreturn.expr)
 			{
+				// @Note(tkap, 27/07/2023): Not sure
+				// generate_expr(node->nreturn.expr, base_register);
 				generate_expr(node->nreturn.expr, e_register_eax);
 			}
 			add_expr({.type = e_expr_return});
