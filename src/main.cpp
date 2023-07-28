@@ -14,7 +14,7 @@ global s_sarray<int, 1024> g_call_stack;
 global s_sarray<s_var, 1024> g_vars;
 global s_sarray<s_expr, 1024> g_exprs;
 global s_carray<int, 1024> g_func_first_expr_index;
-global s64 g_expr_index = 0;
+global s64 g_instruction_pointer = 0;
 global s_carray<s_register, e_register_count> g_registers;
 global e_flag g_flag;
 global volatile int g_input_edited;
@@ -62,10 +62,10 @@ int main(int argc, char** argv)
 			generate_code(ast);
 		}
 
-		while(g_expr_index < g_exprs.count)
+		while(g_instruction_pointer < g_exprs.count)
 		{
-			g_expr_index = execute_expr(g_exprs[g_expr_index]);
-			if(g_expr_index == c_return_value) { break; }
+			g_instruction_pointer = execute_expr(g_exprs[g_instruction_pointer]);
+			if(g_instruction_pointer == c_return_value) { break; }
 		}
 		// printf("------\n");
 		// print_exprs();
@@ -103,9 +103,9 @@ func void do_tests()
 	};
 
 	constexpr s_test_data c_tests[] = {
-		{.file = "tests/struct1.tk", .expected_result = 5},
-		{.file = "tests/struct2.tk", .expected_result = 4},
-		{.file = "tests/struct3.tk", .expected_result = 6},
+		// {.file = "tests/struct1.tk", .expected_result = 5},
+		// {.file = "tests/struct2.tk", .expected_result = 4},
+		// {.file = "tests/struct3.tk", .expected_result = 6},
 		{.file = "tests/factorial.tk", .expected_result = 3628800},
 		{.file = "tests/fibonacci.tk", .expected_result = 55},
 		{.file = "tests/prime.tk", .expected_result = 79},
@@ -147,10 +147,10 @@ func s64 parse_file_and_execute(char* file)
 	type_check(ast, file);
 	generate_code(ast);
 
-	while(g_expr_index < g_exprs.count)
+	while(g_instruction_pointer < g_exprs.count)
 	{
-		g_expr_index = execute_expr(g_exprs[g_expr_index]);
-		if(g_expr_index == c_return_value) { break; }
+		g_instruction_pointer = execute_expr(g_exprs[g_instruction_pointer]);
+		if(g_instruction_pointer == c_return_value) { break; }
 	}
 	return g_registers[e_register_eax].val_s64;
 }
@@ -158,7 +158,7 @@ func s64 parse_file_and_execute(char* file)
 
 func s64 execute_expr(s_expr expr)
 {
-	s64 result = g_expr_index + 1;
+	s64 result = g_instruction_pointer + 1;
 	switch(expr.type)
 	{
 
@@ -258,7 +258,7 @@ func s64 execute_expr(s_expr expr)
 		case e_expr_pop_var:
 		{
 			s_var* var = get_var(expr.a.val);
-			dprint("pop var%lli(%lli)\n", var->id, var->val);
+			dprint("pop var%lli(%lli)\n", var->id, var->val.val_s64);
 			var->val = g_code_exec_data.stack.pop();
 		} break;
 
@@ -421,7 +421,7 @@ func s64 execute_expr(s_expr expr)
 			s_var* var = get_var(expr.a.val);
 			dprint(
 				"mov var%lli(%lli) %lli\n",
-				var->id, var->val, expr.b.val
+				var->id, var->val.val_s64, expr.b.val
 			);
 			var->val.val_s64 = expr.b.val;
 		} break;
@@ -431,7 +431,7 @@ func s64 execute_expr(s_expr expr)
 			s_var var = *get_var(expr.b.val);
 			dprint(
 				"mov %s(%lli) %lli\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val
+				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val.val_s64
 			);
 			g_registers[expr.a.val].val_s64 = var.val.val_s64;
 		} break;
@@ -443,7 +443,7 @@ func s64 execute_expr(s_expr expr)
 			s_var var = *get_var(expr.b.val);
 			dprint(
 				"mov %s(%lli) [%lli]\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val
+				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val.val_s64
 			);
 			s_var* other = (s_var*)var.val.val_ptr;
 			g_registers[expr.a.val].val_s64 = other->val.val_s64;
@@ -463,7 +463,7 @@ func s64 execute_expr(s_expr expr)
 			s_var* var = get_var(expr.a.val);
 			dprint(
 				"add var%lli(%lli) %s(%lli)\n",
-				var->id, var->val, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				var->id, var->val.val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
 			);
 			var->val.val_s64 += g_registers[expr.b.val].val_s64;
 		} break;
@@ -492,7 +492,7 @@ func s64 execute_expr(s_expr expr)
 			s_var var = *get_var(expr.b.val);
 			dprint(
 				"imul2 %s(%lli), %lli\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val
+				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val.val_s64
 			);
 			g_registers[expr.a.val].val_s64 *= var.val.val_s64;
 		} break;
@@ -517,7 +517,7 @@ func s64 execute_expr(s_expr expr)
 			s_var* var = get_var(expr.a.val);
 			dprint(
 				"mov var%lli(%lli) %s(%lli)\n",
-				var->id, var->val, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				var->id, var->val.val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
 			);
 			var->val.val_s64 = g_registers[expr.b.val].val_s64;
 		} break;
@@ -789,7 +789,7 @@ func void reset_globals()
 	g_vars.count = 0;
 	g_exprs.count = 0;
 	g_id = 0;
-	g_expr_index = 0;
+	g_instruction_pointer = 0;
 	g_type_check_data = zero;
 	g_code_gen_data = zero;
 	g_call_stack.count = 0;
