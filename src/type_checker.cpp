@@ -343,6 +343,8 @@ func b8 type_check_func_decl_arg(s_node* node)
 	type_check_type(node->func_arg.type);
 	node->var_data.name = node->func_arg.name;
 	node->var_data.id = g_type_check_data.next_var_id++;
+	// @Hack(tkap, 28/07/2023):
+	node->var_data.type_node = node->func_arg.type->var_data.type_node;
 
 	{
 		s_type_check_var var = zero;
@@ -377,6 +379,7 @@ func void type_check(s_node* ast, char* file)
 		s_node type = zero;
 		type.type = e_node_type;
 		type.ntype.name.from_cstr("void");
+		type.ntype.size_in_bytes = 0;
 		type.ntype.id = g_type_check_data.next_type_id++;
 		g_type_check_data.types.add(type);
 	}
@@ -386,6 +389,7 @@ func void type_check(s_node* ast, char* file)
 		type.type = e_node_type;
 		type.ntype.name.from_cstr("int");
 		type.ntype.id = g_type_check_data.next_type_id++;
+		type.ntype.size_in_bytes = 8;
 		g_type_check_data.types.add(type);
 	}
 
@@ -394,6 +398,7 @@ func void type_check(s_node* ast, char* file)
 		type.type = e_node_type;
 		type.ntype.name.from_cstr("char");
 		type.ntype.id = g_type_check_data.next_type_id++;
+		type.ntype.size_in_bytes = 8;
 		g_type_check_data.types.add(type);
 	}
 
@@ -402,6 +407,7 @@ func void type_check(s_node* ast, char* file)
 		type.type = e_node_type;
 		type.ntype.name.from_cstr("bool");
 		type.ntype.id = g_type_check_data.next_type_id++;
+		type.ntype.size_in_bytes = 8;
 		g_type_check_data.types.add(type);
 	}
 
@@ -409,6 +415,7 @@ func void type_check(s_node* ast, char* file)
 		s_node type = zero;
 		type.type = e_node_type;
 		type.ntype.name.from_cstr("u8");
+		type.ntype.size_in_bytes = 8;
 		type.ntype.id = g_type_check_data.next_type_id++;
 		g_type_check_data.types.add(type);
 	}
@@ -433,10 +440,25 @@ func void type_check(s_node* ast, char* file)
 					{
 						type_check_func_decl_arg(arg);
 						// @TODO(tkap, 25/07/2023): Prevent duplicate argument names, including other arguments, globals, functions, structs, etc...
+
+						func_decl->bytes_used_by_args += arg->var_data.type_node->ntype.size_in_bytes;
 					}
 					if(!func_decl->external)
 					{
 						type_check_statement(func_decl->body, &reporter, file);
+
+						for_node(var_decl, func_decl->body->compound.statements)
+						{
+							if(var_decl->type == e_node_var_decl)
+							{
+								var_decl->var_data.stack_offset = func_decl->bytes_used_by_local_variables;
+
+								// @Fixme(tkap, 28/07/2023): This doesn't really work for nested expressions
+								var_decl->var_decl.val->var_data.stack_offset = func_decl->bytes_used_by_local_variables;
+
+								func_decl->bytes_used_by_local_variables += var_decl->var_data.type_node->ntype.size_in_bytes;
+							}
+						}
 					}
 					type_check_pop_scope();
 				}

@@ -45,6 +45,7 @@ struct s_node;
 struct s_type_check_var
 {
 	int pointer_level;
+	int stack_offset; // @Note(tkap, 28/07/2023): This is relative to the function
 	s_node* func_node;
 	s_node* type_node;
 	s64 id;
@@ -65,6 +66,10 @@ struct s_node
 
 	// @Fixme(tkap, 25/07/2023): Bad name. Probably something like "type_checked_data"
 	s_type_check_var var_data;
+	int stack_offset;
+	int size;
+	s_node* type_node;
+	s_node* func_node;
 
 	union
 	{
@@ -77,6 +82,8 @@ struct s_node
 
 		struct
 		{
+			int bytes_used_by_local_variables;
+			int bytes_used_by_args;
 			s64 id;
 			b8 external;
 			int arg_count;
@@ -156,6 +163,7 @@ struct s_node
 
 		struct
 		{
+			int size_in_bytes;
 			int id;
 			int pointer_level;
 			s_str<64> name;

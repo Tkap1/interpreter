@@ -1,6 +1,6 @@
 
-global constexpr int c_max_vars = 128;
-global constexpr int c_max_scopes = 16;
+global constexpr int c_max_vars = 32;
+global constexpr int c_max_scopes = 8;
 
 struct s_type_check_data
 {
@@ -14,6 +14,9 @@ struct s_type_check_data
 	s_sarray<s_node, 1024> funcs;
 	s_sarray<s_node, 1024> types;
 	s_sarray<s_node, 1024> structs;
+
+	s_node vars2[c_max_scopes][c_max_vars];
+	s_carray<int, c_max_scopes> var_count2;
 };
 
 func void add_type_check_var(s_type_check_var var);
@@ -25,3 +28,4 @@ func s_node* get_type_by_name(char* str);
 func int get_type_id(s_type_instance type_instance);
 func char* type_instance_to_str(s_type_instance type_instance);
 func void node_to_str_(s_node* node, s_str_sbuilder<1024>* builder);
+func void add_var(s_node var);

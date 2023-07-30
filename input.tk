@@ -1,5 +1,8 @@
 
 func int main()
 {
-	int a = 5;
+	int a = 1;
+	int b = 8;
+	a *= b;
+	print(a);
 }

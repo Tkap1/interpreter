@@ -3,7 +3,7 @@
 
 
 
-#if 0
+#if 1
 #define dprint(...) printf(__VA_ARGS__)
 #else
 #define dprint(...)
@@ -28,13 +28,15 @@ struct s_var
 
 struct s_code_exec_data
 {
+	s64 stack_pointer;
+	s64 stack_base;
 	s_sarray<s_val, 1024> stack;
+	u8 stack_[8192];
 };
 
 
 func s64 execute_expr(s_expr expr);
 func s_var* get_var(s64 id);
-func s_expr var_to_register(int reg, s64 index);
 DWORD WINAPI watch_for_file_changes(void* param);
 func void print_exprs();
 func char* register_to_str(int reg);
@@ -42,3 +44,4 @@ func void do_tests();
 func s64 parse_file_and_execute(char* file);
 func void reset_globals();
 func s_func get_func_by_id(int id);
+func s_var* get_var(s64 id);

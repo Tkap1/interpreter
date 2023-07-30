@@ -8,7 +8,9 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 		case e_node_func_call:
 		{
 			// @Fixme(tkap, 25/07/2023):
-			if(node->var_data.func_node->func_decl.name.equals("print"))
+			// if(node->var_data.func_node->func_decl.name.equals("print"))
+			if(node->func_call.left->identifier.name.equals("print"))
+			// if(1)
 			{
 				if(node->func_call.args->type == e_node_integer)
 				{
@@ -16,7 +18,14 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 				}
 				else if(node->func_call.args->type == e_node_identifier)
 				{
-					add_expr({.type = e_expr_print_var, .a = {.val = node->func_call.args->var_data.id}});
+					// @Note(tkap, 28/07/2023): Only 1 argument works here, but we don't really want this whole print special case anyway
+					int i = 0;
+					for_node(expr, node->func_call.args)
+					{
+						generate_expr(expr, base_register + i);
+						i += 1;
+					}
+					add_expr({.type = e_expr_print_reg, .a = {.val = base_register}});
 				}
 				invalid_else;
 			}
@@ -29,13 +38,13 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 					add_expr({.type = e_expr_push_reg, .a = {.val = base_register + i}});
 					i += 1;
 				}
-				if( node->var_data.func_node->func_decl.external)
+				if(node->func_node->func_decl.external)
 				{
-					add_expr({.type = e_expr_call_external, .a = {.val = node->var_data.func_node->func_decl.id}, .b = {.val = base_register}});
+					add_expr({.type = e_expr_call_external, .a = {.val = node->func_node->func_decl.id}, .b = {.val = base_register}});
 				}
 				else
 				{
-					add_expr({.type = e_expr_call, .a = {.val = node->var_data.func_node->func_decl.id}});
+					add_expr({.type = e_expr_call, .a = {.val = node->func_node->func_decl.id}});
 				}
 			}
 		} break;
@@ -74,7 +83,7 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 
 		case e_node_identifier:
 		{
-			add_expr(var_to_register((e_register)base_register, node->var_data.id));
+			add_expr({.type = e_expr_var_to_register, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
 		} break;
 
 		case e_node_equals:
@@ -118,14 +127,14 @@ func void generate_statement(s_node* node, int base_register)
 	{
 		case e_node_var_decl:
 		{
-			s_var var = zero;
-			var.id = g_id++;
-			g_vars.add(var);
+			// s_var var = zero;
+			// var.id = g_id++;
+			// g_vars.add(var);
 
 			if(node->var_decl.val)
 			{
 				generate_expr(node->var_decl.val, base_register);
-				add_expr({.type = e_expr_register_to_var, .a = {.val = var.id}, .b = {.val = base_register}});
+				add_expr({.type = e_expr_register_to_var, .a = {.val = node->stack_offset}, .b = {.val = base_register}});
 			}
 		} break;
 
@@ -135,9 +144,10 @@ func void generate_statement(s_node* node, int base_register)
 			auto expr = nfor.expr;
 
 			// @Note(tkap, 24/07/2023): Create the loop variable
-			s_var var = zero;
-			var.id = g_id++;
-			g_vars.add(var);
+			// @Fixme(tkap, 31/07/2023):
+			// s_var var = zero;
+			// var.id = g_id++;
+			// g_vars.add(var);
 
 			int comparison_index = -1;
 			int jump_index = -1;
@@ -146,10 +156,10 @@ func void generate_statement(s_node* node, int base_register)
 			{
 				generate_expr(expr, base_register + 1);
 				add_expr({.type = e_expr_register_dec, .a = {.val = base_register + 1}});
-				add_expr({.type = e_expr_register_to_var, .a = {.val = var.id}, .b = {.val = base_register + 1}});
+				add_expr({.type = e_expr_register_to_var, .a = {.val = node->stack_offset}, .b = {.val = base_register + 1}});
 
 				comparison_index = add_expr(
-					{.type = e_expr_cmp_var_immediate, .a = {.val = var.id}, .b = {.val = 0}}
+					{.type = e_expr_cmp_var_immediate, .a = {.val = node->stack_offset}, .b = {.val = 0}}
 				);
 
 				// @Note(tkap, 24/07/2023): Go to end of loop. We don't yet know to which instruction we have to jump, hence the -1
@@ -157,13 +167,13 @@ func void generate_statement(s_node* node, int base_register)
 			}
 			else
 			{
-				add_expr({.type = e_expr_immediate_to_var, .a = {.val = var.id}, .b = {.val = 0}});
+				add_expr({.type = e_expr_immediate_to_var, .a = {.val = node->stack_offset}, .b = {.val = 0}});
 
 				// @TODO(tkap, 24/07/2023): If we can know the value of the comparand at compile time, then we just place it there.
 				// Otherwise, we need to reference a variable
 				generate_expr(expr, base_register + 1);
 				comparison_index = add_expr(
-					{.type = e_expr_cmp_var_register, .a = {.val = var.id}, .b = {.val = base_register + 1}}
+					{.type = e_expr_cmp_var_register, .a = {.val = node->stack_offset}, .b = {.val = base_register + 1}}
 				);
 
 				// @Note(tkap, 24/07/2023): Go to end of loop. We don't yet know to which instruction we have to jump, hence the -1
@@ -173,8 +183,9 @@ func void generate_statement(s_node* node, int base_register)
 			// @Note(tkap, 24/07/2023): Do the for body
 			generate_statement(nfor.body, base_register + 2);
 
+
 			// @Note(tkap, 24/07/2023): Increment loop variable, go back to compare
-			int inc_loop_index = add_expr(var_to_register((e_register)(base_register), var.id));
+			int inc_loop_index = add_expr({.type = e_expr_var_to_register, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
 			if(nfor.reverse)
 			{
 				add_expr({.type = e_expr_register_dec, .a = {.val = base_register}});
@@ -184,7 +195,7 @@ func void generate_statement(s_node* node, int base_register)
 				add_expr({.type = e_expr_register_inc, .a = {.val = base_register}});
 			}
 
-			add_expr({.type = e_expr_register_to_var, .a = {.val = var.id}, .b = {.val = base_register}});
+			add_expr({.type = e_expr_register_to_var, .a = {.val = node->stack_offset}, .b = {.val = base_register}});
 			int temp_index = add_expr({.type = e_expr_jump, .a = {.val = comparison_index}});
 
 			foreach(break_index_i, break_index, g_code_gen_data.break_indices)
@@ -255,15 +266,15 @@ func void generate_statement(s_node* node, int base_register)
 		case e_node_plus_equals:
 		{
 			generate_expr(node->arithmetic.right, base_register);
-			add_expr({.type = e_expr_add_register_to_var, .a = {.val = node->arithmetic.left->var_data.id}, .b = {.val = base_register}});
+			add_expr({.type = e_expr_add_register_to_var, .a = {.val = node->arithmetic.left->stack_offset}, .b = {.val = base_register}});
 		} break;
 
 		case e_node_times_equals:
 		{
-			add_expr(var_to_register(base_register, node->arithmetic.left->var_data.id));
+			add_expr({.type = e_expr_var_to_register, .a = {.val = base_register}, .b = {.val = node->arithmetic.left->stack_offset}});
 			generate_expr(node->arithmetic.right, base_register + 1);
 			add_expr({.type = e_expr_imul2_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
-			add_expr({.type = e_expr_register_to_var, .a = {.val = node->arithmetic.left->var_data.id}, .b = {.val = base_register}});
+			add_expr({.type = e_expr_register_to_var, .a = {.val = node->arithmetic.left->stack_offset}, .b = {.val = base_register}});
 		} break;
 
 		case e_node_break:
@@ -303,6 +314,7 @@ func void generate_code(s_node* ast)
 			case e_node_func_decl:
 			{
 				auto func_decl = &node->func_decl;
+				#if 0
 				if(func_decl->external)
 				{
 					s_type_instance return_type = get_type_instance(node->func_decl.return_type);
@@ -356,7 +368,10 @@ func void generate_code(s_node* ast)
 					g_code_gen_data.external_funcs.add(f);
 				}
 				else
+				#endif
 				{
+					add_expr({.type = e_expr_set_stack_base});
+					add_expr({.type = e_expr_add_stack_pointer, .a = {.val = func_decl->bytes_used_by_local_variables}});
 					if(func_decl->name.equals("main"))
 					{
 						g_exprs[0].a.val = func_decl->id;
@@ -364,20 +379,20 @@ func void generate_code(s_node* ast)
 
 					g_func_first_expr_index[func_decl->id] = g_exprs.count;
 
-					for_node(arg, func_decl->args)
-					{
-						s_var var = zero;
-						var.id = g_id++;
-						g_vars.add(var);
-					}
+					// for_node(arg, func_decl->args)
+					// {
+					// 	s_var var = zero;
+					// 	var.id = g_id++;
+					// 	g_vars.add(var);
+					// }
 
 					// @Note(tkap, 26/07/2023): Pop into arguments in reverse
-					for(int i = 0; i < func_decl->arg_count; i++)
-					{
-						int index = g_vars.count - 1 - i;
-						assert(index >= 0);
-						add_expr({.type = e_expr_pop_var, .a = {.val = index}});
-					}
+					// for(int i = 0; i < func_decl->arg_count; i++)
+					// {
+					// 	int index = g_vars.count - 1 - i;
+					// 	assert(index >= 0);
+					// 	add_expr({.type = e_expr_pop_var, .a = {.val = index}});
+					// }
 
 					generate_statement(func_decl->body, e_register_eax);
 					add_expr({.type = e_expr_return});

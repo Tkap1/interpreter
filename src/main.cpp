@@ -11,7 +11,6 @@ global constexpr s64 c_return_value = -1234;
 
 global s64 g_id = 0;
 global s_sarray<int, 1024> g_call_stack;
-global s_sarray<s_var, 1024> g_vars;
 global s_sarray<s_expr, 1024> g_exprs;
 global s_carray<int, 1024> g_func_first_expr_index;
 global s64 g_instruction_pointer = 0;
@@ -26,7 +25,7 @@ global HANDLE stdout_handle;
 global DCCallVM* g_vm;
 
 #include "parser.cpp"
-#include "type_checker.cpp"
+#include "type_checker2.cpp"
 #include "code_generator.cpp"
 
 int main(int argc, char** argv)
@@ -67,9 +66,9 @@ int main(int argc, char** argv)
 			g_instruction_pointer = execute_expr(g_exprs[g_instruction_pointer]);
 			if(g_instruction_pointer == c_return_value) { break; }
 		}
-		// printf("------\n");
-		// print_exprs();
-		// printf("@@@@@@\n");
+		printf("------\n");
+		print_exprs();
+		printf("@@@@@@\n");
 
 		while(true)
 		{
@@ -106,8 +105,8 @@ func void do_tests()
 		// {.file = "tests/struct1.tk", .expected_result = 5},
 		// {.file = "tests/struct2.tk", .expected_result = 4},
 		// {.file = "tests/struct3.tk", .expected_result = 6},
-		{.file = "tests/factorial.tk", .expected_result = 3628800},
 		{.file = "tests/fibonacci.tk", .expected_result = 55},
+		{.file = "tests/factorial.tk", .expected_result = 3628800},
 		{.file = "tests/prime.tk", .expected_result = 79},
 		{.file = "tests/break2.tk", .expected_result = 2},
 		{.file = "tests/return_val1.tk", .expected_result = 11},
@@ -294,16 +293,20 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_cmp_var_register:
 		{
-			s_var var = *get_var(expr.a.val);
-			if(var.val.val_s64 == g_registers[expr.b.val].val_s64)
+			s64 val = *(s64*)&g_code_exec_data.stack_[g_code_exec_data.stack_base + expr.a.val];
+			dprint(
+				"cmp [stack_base + %lli](%lli), %s(%lli)\n",
+				expr.a.val, val, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+			);
+			if(val == g_registers[expr.b.val].val_s64)
 			{
 				g_flag = e_flag_equal;
 			}
-			else if(var.val.val_s64 > g_registers[expr.b.val].val_s64)
+			else if(val > g_registers[expr.b.val].val_s64)
 			{
 				g_flag = e_flag_greater;
 			}
-			else if(var.val.val_s64 < g_registers[expr.b.val].val_s64)
+			else if(val < g_registers[expr.b.val].val_s64)
 			{
 				g_flag = e_flag_lesser;
 			}
@@ -311,16 +314,16 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_cmp_var_immediate:
 		{
-			s_var var = *get_var(expr.a.val);
-			if(var.val.val_s64 == expr.b.val)
+			s64 val = *(s64*)&g_code_exec_data.stack_[g_code_exec_data.stack_base + expr.a.val];
+			if(val == expr.b.val)
 			{
 				g_flag = e_flag_equal;
 			}
-			else if(var.val.val_s64 > expr.b.val)
+			else if(val > expr.b.val)
 			{
 				g_flag = e_flag_greater;
 			}
-			else if(var.val.val_s64 < expr.b.val)
+			else if(val < expr.b.val)
 			{
 				g_flag = e_flag_lesser;
 			}
@@ -364,9 +367,15 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_jump_greater_or_equal:
 		{
+			dprint("jge %lli ", expr.a.val);
 			if(g_flag == e_flag_equal || g_flag == e_flag_greater)
 			{
 				result = expr.a.val;
+				dprint("YES\n");
+			}
+			else
+			{
+				dprint("NO\n");
 			}
 		} break;
 
@@ -418,22 +427,22 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_immediate_to_var:
 		{
-			s_var* var = get_var(expr.a.val);
+			s64* where = (s64*)&g_code_exec_data.stack_[g_code_exec_data.stack_base + expr.a.val];
 			dprint(
-				"mov var%lli(%lli) %lli\n",
-				var->id, var->val.val_s64, expr.b.val
+				"[stack_base + %lli](%lli) = %lli\n",
+				expr.a.val, *where, expr.b.val
 			);
-			var->val.val_s64 = expr.b.val;
+			*where = expr.b.val;
 		} break;
 
 		case e_expr_var_to_register:
 		{
-			s_var var = *get_var(expr.b.val);
+			s64 val = *(s64*)&g_code_exec_data.stack_[g_code_exec_data.stack_base + expr.b.val];
 			dprint(
 				"mov %s(%lli) %lli\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val.val_s64
+				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, val
 			);
-			g_registers[expr.a.val].val_s64 = var.val.val_s64;
+			g_registers[expr.a.val].val_s64 = val;
 		} break;
 
 		// @TODO(tkap, 26/07/2023): Pretty sure this doesn't work with pointer level > 1. We probably need something in the variables that
@@ -460,12 +469,12 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_add_register_to_var:
 		{
-			s_var* var = get_var(expr.a.val);
+			s64* val = (s64*)&g_code_exec_data.stack_[g_code_exec_data.stack_base + expr.a.val];
 			dprint(
-				"add var%lli(%lli) %s(%lli)\n",
-				var->id, var->val.val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				"[stack_base + %lli](%lli) += %s(%lli)\n",
+				expr.a.val, *val, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
 			);
-			var->val.val_s64 += g_registers[expr.b.val].val_s64;
+			*val += g_registers[expr.b.val].val_s64;
 		} break;
 
 		case e_expr_divide_reg_reg:
@@ -514,12 +523,17 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_register_to_var:
 		{
-			s_var* var = get_var(expr.a.val);
+			s64* where = (s64*)&g_code_exec_data.stack_[g_code_exec_data.stack_base + expr.a.val];
 			dprint(
-				"mov var%lli(%lli) %s(%lli)\n",
-				var->id, var->val.val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				"[stack_base + %lli](%lli) = %s(%lli)\n",
+				expr.a.val, *where, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
 			);
-			var->val.val_s64 = g_registers[expr.b.val].val_s64;
+			*where = g_registers[expr.b.val].val_s64;
+		} break;
+
+		case e_expr_set_stack_base:
+		{
+			g_code_exec_data.stack_base = g_code_exec_data.stack_pointer;
 		} break;
 
 		// @Fixme(tkap, 24/07/2023): remove
@@ -527,9 +541,9 @@ func s64 execute_expr(s_expr expr)
 		{
 			assert(false);
 			// @TODO(tkap, 24/07/2023): We should have a way to say that the variable is not initialized
-			s_var var = zero;
-			var.id = g_id++;
-			g_vars.add(var);
+			// s_var var = zero;
+			// var.id = g_id++;
+			// g_vars.add(var);
 		} break;
 
 		case e_expr_plus_equals:
@@ -548,6 +562,11 @@ func s64 execute_expr(s_expr expr)
 		{
 			s_var* var = get_var(expr.a.val);
 			printf("%lli\n", var->val.val_s64);
+		} break;
+
+		case e_expr_print_reg:
+		{
+			printf("%lli\n", g_registers[expr.a.val].val_s64);
 		} break;
 
 		case e_expr_jump:
@@ -569,26 +588,6 @@ func s64 execute_expr(s_expr expr)
 	return result;
 }
 
-func s_var* get_var(s64 id)
-{
-	foreach(var_i, var, g_vars)
-	{
-		if(var->id == id) { return var; }
-	}
-	assert(false);
-	return null;
-}
-
-func s_expr var_to_register(int reg, s64 index)
-{
-	assert(reg < e_register_count);
-
-	s_expr expr = zero;
-	expr.type = e_expr_var_to_register;
-	expr.a.val = reg;
-	expr.b.val = index;
-	return expr;
-}
 
 DWORD WINAPI watch_for_file_changes(void* param)
 {
@@ -636,17 +635,17 @@ func void print_exprs()
 
 			case e_expr_immediate_to_var:
 			{
-				printf("immediate to var\n");
+				printf("[stack_base + %lli] = %lli\n", expr.a.val, expr.b.val);
 			} break;
 
 			case e_expr_var_to_register:
 			{
-				printf("var to register\n");
+				printf("%s = [stack_base + %lli]\n", register_to_str(expr.a.val), expr.b.val);
 			} break;
 
 			case e_expr_register_to_var:
 			{
-				printf("register to var\n");
+				printf("[stack_base + %lli] = %s\n", g_code_exec_data.stack_base + expr.a.val, register_to_str(expr.b.val));
 			} break;
 
 			case e_expr_cmp:
@@ -691,7 +690,7 @@ func void print_exprs()
 
 			case e_expr_imul2_reg_reg:
 			{
-				printf("imul reg reg\n");
+				printf("imul %s %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
 			} break;
 
 			case e_expr_imul3:
@@ -701,12 +700,12 @@ func void print_exprs()
 
 			case e_expr_val_to_register:
 			{
-				printf("val to %s\n", register_to_str(expr.a.val));
+				printf("%s = %lli\n", register_to_str(expr.a.val), expr.b.val);
 			} break;
 
 			case e_expr_cmp_var_register:
 			{
-				printf("cmp var %s\n", register_to_str(expr.b.val));
+				printf("cmp [stack_base + %lli] %s\n", expr.a.val, register_to_str(expr.b.val));
 			} break;
 
 			case e_expr_divide_reg_reg:
@@ -738,6 +737,21 @@ func void print_exprs()
 			{
 				s_var var = *get_var(expr.a.val);
 				printf("pop var%lli\n", var.id);
+			} break;
+
+			case e_expr_set_stack_base:
+			{
+				printf("set stack base\n");
+			} break;
+
+			case e_expr_add_stack_pointer:
+			{
+				printf("stack_pointer += %lli\n", expr.a.val);
+			} break;
+
+			case e_expr_print_reg:
+			{
+				printf("print %s\n", register_to_str(expr.a.val));
 			} break;
 
 
@@ -786,7 +800,6 @@ func char* register_to_str(int reg)
 
 func void reset_globals()
 {
-	g_vars.count = 0;
 	g_exprs.count = 0;
 	g_id = 0;
 	g_instruction_pointer = 0;
@@ -805,4 +818,11 @@ func s_func get_func_by_id(int id)
 	}
 	assert(false);
 	return zero;
+}
+
+func s_var* get_var(s64 id)
+{
+	unreferenced(id);
+	assert(false);
+	return null;
 }

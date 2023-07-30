@@ -9,3 +9,6 @@ we may have to set as invalid and assert so we find these problems easily.
 
 we seem to insert a return at the end of the program. this is not necesary anymore
 	and the return after call main is also useless, i think...
+
+
+calc as much shit as possible during type check, like how much stack in bytes a function decl uses

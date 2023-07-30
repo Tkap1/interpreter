@@ -75,6 +75,7 @@ enum e_expr
 	e_expr_var_decl,
 	e_expr_print_immediate,
 	e_expr_print_var,
+	e_expr_print_reg,
 	e_expr_jump,
 	e_expr_immediate_to_var,
 	e_expr_var_to_register,
@@ -107,6 +108,8 @@ enum e_expr
 	e_expr_lea_reg_var,
 	e_expr_var_to_reg_dereference,
 	e_expr_pointer_to_reg,
+	e_expr_add_stack_pointer,
+	e_expr_set_stack_base,
 };
 
 enum e_operand
