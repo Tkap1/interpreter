@@ -1,4 +1,26 @@
 
+func s_node* node_to_struct_member(s_node* nstruct, s_node* node)
+{
+	assert(nstruct->type == e_node_struct);
+	switch(node->type)
+	{
+		case e_node_identifier:
+		{
+			for_node(member, nstruct->nstruct.members)
+			{
+				if(node->identifier.name.equals(&member->struct_member.name))
+				{
+					return member;
+				}
+			}
+			return null;
+		} break;
+
+		invalid_default_case;
+	}
+	return null;
+}
+
 func s_node* get_type_by_name(char* str)
 {
 	foreach(type_i, type, g_type_check_data.types)
@@ -41,9 +63,9 @@ func s_node* node_to_var(s_node* node)
 		{
 			for(int scope_i = g_type_check_data.curr_scope; scope_i >= 0; scope_i--)
 			{
-				for(int var_i = g_type_check_data.var_count2[scope_i] - 1; var_i >= 0; var_i--)
+				for(int var_i = g_type_check_data.var_count[scope_i] - 1; var_i >= 0; var_i--)
 				{
-					s_node* var = &g_type_check_data.vars2[scope_i][var_i];
+					s_node* var = &g_type_check_data.vars[scope_i][var_i];
 					switch(var->type)
 					{
 						case e_node_var_decl:
@@ -76,24 +98,19 @@ func s_node* node_to_type(s_node* node)
 {
 	switch(node->type)
 	{
-		case e_node_identifier:
-		{
-			assert(false); // @Note(tkap, 26/07/2023): Do we even need this case??
-			foreach(type_i, type, g_type_check_data.types)
-			{
-				if(node->identifier.name.equals(&type->ntype.name))
-				{
-					return type;
-				}
-			}
-			return null;
-		} break;
-
 		case e_node_type:
 		{
 			foreach(type_i, type, g_type_check_data.types)
 			{
 				if(node->ntype.name.equals(&type->ntype.name))
+				{
+					return type;
+				}
+			}
+
+			foreach(type_i, type, g_type_check_data.structs)
+			{
+				if(node->ntype.name.equals(&type->nstruct.name))
 				{
 					return type;
 				}
@@ -104,6 +121,12 @@ func s_node* node_to_type(s_node* node)
 
 		case e_node_integer:
 		{
+			return get_type_by_name("int");
+		} break;
+
+		case e_node_add:
+		{
+			// @TODO(tkap, 31/07/2023): actual type
 			return get_type_by_name("int");
 		} break;
 
@@ -140,6 +163,11 @@ func void type_check_expr(s_node* node, char* file, s_node* func_decl)
 		} break;
 
 		case e_node_add:
+		case e_node_subtract:
+		case e_node_multiply:
+		case e_node_divide:
+		case e_node_mod:
+		case e_node_equals:
 		{
 			// @TODO(tkap, 31/07/2023): need to set type_node here?
 
@@ -147,19 +175,42 @@ func void type_check_expr(s_node* node, char* file, s_node* func_decl)
 			type_check_expr(node->arithmetic.right, file, null);
 		} break;
 
+		case e_node_member_access:
+		{
+			// @TODO(tkap, 31/07/2023): Check that left side is struct
+			// @TODO(tkap, 31/07/2023): Check that right side exists in right side struct
+			s_node* var = node_to_var(node->arithmetic.left);
+			assert(var);
+			s_node* type = node_to_type(var->var_decl.ntype);
+			assert(type);
+			s_node* member = node_to_struct_member(type, node->arithmetic.right);
+			assert(member);
+			node->stack_offset = var->stack_offset + member->stack_offset;
+
+		} break;
+
 		invalid_default_case;
 	}
 }
 
-func void type_check_statement(s_node* node, char* file, s_node* func_decl)
+func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_struct)
 {
 	switch(node->type)
 	{
+		case e_node_struct_member:
+		{
+			// @Note(tkap, 31/07/2023): We may want to set node->struct_membe.type.struct_node = func_decl_or_struct
+			// or something like that. We'll see
+			type_check_statement(node->struct_member.type, file, null);
+			node->stack_offset = func_decl_or_struct->nstruct.bytes_used_by_members;
+			func_decl_or_struct->nstruct.bytes_used_by_members += node->struct_member.type->size;
+		} break;
+
 		case e_node_func_arg:
 		{
 			type_check_statement(node->func_arg.type, file, null);
-			node->stack_offset = func_decl->func_decl.bytes_used_by_args;
-			func_decl->func_decl.bytes_used_by_args += node->func_arg.type->size;
+			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args;
+			func_decl_or_struct->func_decl.bytes_used_by_args += node->func_arg.type->size;
 
 			add_var(*node);
 		} break;
@@ -175,9 +226,12 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl)
 		case e_node_var_decl:
 		{
 			type_check_statement(node->var_decl.ntype, file, null);
-			type_check_expr(node->var_decl.val, file, null);
-			node->stack_offset = func_decl->func_decl.bytes_used_by_args + func_decl->func_decl.bytes_used_by_local_variables;
-			func_decl->func_decl.bytes_used_by_local_variables += node->var_decl.ntype->size;
+			if(node->var_decl.val)
+			{
+				type_check_expr(node->var_decl.val, file, null);
+			}
+			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args + func_decl_or_struct->func_decl.bytes_used_by_local_variables;
+			func_decl_or_struct->func_decl.bytes_used_by_local_variables += node->var_decl.ntype->size;
 
 			add_var(*node);
 		} break;
@@ -186,15 +240,15 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl)
 		{
 			for_node(n, node->compound.statements)
 			{
-				type_check_statement(n, file, func_decl);
+				type_check_statement(n, file, func_decl_or_struct);
 			}
 		} break;
 
 		case e_node_for:
 		{
 			type_check_expr(node->nfor.expr, file, null);
-			node->stack_offset = func_decl->func_decl.bytes_used_by_args + func_decl->func_decl.bytes_used_by_local_variables;
-			func_decl->func_decl.bytes_used_by_local_variables += 8; // @Fixme(tkap, 31/07/2023): just size of int?? not sure
+			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args + func_decl_or_struct->func_decl.bytes_used_by_local_variables;
+			func_decl_or_struct->func_decl.bytes_used_by_local_variables += 8; // @Fixme(tkap, 31/07/2023): just size of int?? not sure
 
 			s_node new_node = zero;
 			new_node.type = e_node_var_decl;
@@ -211,7 +265,7 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl)
 
 			type_check_push_scope();
 			add_var(new_node);
-			type_check_statement(node->nfor.body, file, func_decl);
+			type_check_statement(node->nfor.body, file, func_decl_or_struct);
 			type_check_pop_scope();
 		} break;
 
@@ -231,6 +285,26 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl)
 			}
 		} break;
 
+		case e_node_break:
+		{
+			// @TODO(tkap, 25/07/2023): We should check that we are inside a for loop
+			// and that the value matches how many loops deep we are in
+		} break;
+
+		case e_node_if:
+		{
+			type_check_push_scope();
+
+			type_check_expr(node->nif.expr, file, null);
+
+			for_node(arg, node->nif.body)
+			{
+				type_check_statement(arg, file, func_decl_or_struct);
+			}
+
+			type_check_pop_scope();
+		} break;
+
 		default:
 		{
 			type_check_expr(node, file, null);
@@ -242,6 +316,7 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl)
 func void type_check(s_node* ast, char* file)
 {
 
+	s_error_reporter reporter = zero;
 
 	{
 		s_node f = zero;
@@ -319,6 +394,58 @@ func void type_check(s_node* ast, char* file)
 				type_check_statement(func_decl->body, file, node);
 				type_check_pop_scope();
 			} break;
+
+			case e_node_struct:
+			{
+				auto nstruct = &node->nstruct;
+				foreach_raw(f_i, f, g_type_check_data.funcs)
+				{
+					if(f.func_decl.name.equals(&nstruct->name))
+					{
+						reporter.fatal(
+							node->line, file, "Struct '%s' cannot have that name because function '%s' already exists",
+							nstruct->name.data, nstruct->name.data
+						);
+					}
+				}
+
+				foreach_raw(type_i, type, g_type_check_data.types)
+				{
+					if(type.ntype.name.equals(&nstruct->name))
+					{
+						reporter.fatal(
+							node->line, file, "Struct '%s' cannot have that name because type '%s' already exists",
+							nstruct->name.data, nstruct->name.data
+						);
+					}
+				}
+
+				foreach_raw(struct2_i, struct2, g_type_check_data.structs)
+				{
+					if(struct2.nstruct.name.equals(&nstruct->name))
+					{
+						reporter.fatal(
+							node->line, file, "Struct '%s' already exists",
+							nstruct->name.data
+						);
+					}
+				}
+
+				for_node(member, nstruct->members)
+				{
+					type_check_statement(member, file, node);
+				}
+
+				// @TODO(tkap, 27/07/2023): check if any structs, functions, types, or globals have the same name
+				// @TODO(tkap, 27/07/2023): Check the same for each struct member
+				// @TODO(tkap, 27/07/2023): Check if any struct has the same name as any other
+				// @TODO(tkap, 27/07/2023): Check if the types exists
+
+				// @Fixme(tkap, 27/07/2023): We are not using next_struct_id
+				g_type_check_data.structs.add(*node);
+			} break;
+
+			invalid_default_case;
 		}
 	}
 }
@@ -326,18 +453,18 @@ func void type_check(s_node* ast, char* file)
 func void type_check_push_scope()
 {
 	g_type_check_data.curr_scope += 1;
-	g_type_check_data.var_count2[g_type_check_data.curr_scope] = 0;
+	g_type_check_data.var_count[g_type_check_data.curr_scope] = 0;
 }
 
 func void type_check_pop_scope()
 {
-	g_type_check_data.var_count2[g_type_check_data.curr_scope] = 0;
+	g_type_check_data.var_count[g_type_check_data.curr_scope] = 0;
 	g_type_check_data.curr_scope -= 1;
 }
 
 func void add_var(s_node var)
 {
-	int* var_count = &g_type_check_data.var_count2[g_type_check_data.curr_scope];
-	g_type_check_data.vars2[g_type_check_data.curr_scope][*var_count] = var;
+	int* var_count = &g_type_check_data.var_count[g_type_check_data.curr_scope];
+	g_type_check_data.vars[g_type_check_data.curr_scope][*var_count] = var;
 	*var_count += 1;
 }

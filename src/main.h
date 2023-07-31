@@ -1,9 +1,9 @@
 
 #define for_node(name, base) for(s_node* name = (base); (name); name = name->next)
 
+// #define m_verbose 1
 
-
-#if 1
+#ifdef m_verbose
 #define dprint(...) printf(__VA_ARGS__)
 #else
 #define dprint(...)

@@ -1,4 +1,19 @@
 
+func void generate_expr_address(s_node* node, int base_register)
+{
+	assert(base_register < e_register_count);
+	switch(node->type)
+	{
+		case e_node_member_access:
+		case e_node_identifier:
+		{
+			add_expr({.type = e_expr_immediate_to_reg, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
+		} break;
+
+		invalid_default_case;
+	}
+}
+
 func s_gen_data generate_expr(s_node* node, int base_register)
 {
 	s_gen_data result = zero;
@@ -73,17 +88,17 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 		{
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_register_mod_register, .a = {.val = base_register}, .b = {.val = base_register + 1}});
+			add_expr({.type = e_expr_reg_mod_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
 		} break;
 
 		case e_node_integer:
 		{
-			add_expr({.type = e_expr_val_to_register, .a = {.val = base_register}, .b = {.val = node->integer.val}});
+			add_expr({.type = e_expr_immediate_to_reg, .a = {.val = base_register}, .b = {.val = node->integer.val}});
 		} break;
 
 		case e_node_identifier:
 		{
-			add_expr({.type = e_expr_var_to_register, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
+			add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
 		} break;
 
 		case e_node_equals:
@@ -101,18 +116,25 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 			{
 				case e_unary_dereference:
 				{
-					s64 var_id = get_var_id(unary->expr);
-					add_expr({.type = e_expr_var_to_reg_dereference, .a = {.val = base_register}, .b = {.val = var_id}});
+					assert(false);
+					// s64 var_id = get_var_id(unary->expr);
+					// add_expr({.type = e_expr_var_to_reg_dereference, .a = {.val = base_register}, .b = {.val = var_id}});
 				} break;
 
 				case e_unary_address_of:
 				{
-					s64 var_id = get_var_id(unary->expr);
-					add_expr({.type = e_expr_lea_reg_var, .a = {.val = base_register}, .b = {.val = var_id}});
+					assert(false);
+					// s64 var_id = get_var_id(unary->expr);
+					// add_expr({.type = e_expr_lea_reg_var, .a = {.val = base_register}, .b = {.val = var_id}});
 				} break;
 				invalid_default_case;
 
 			}
+		} break;
+
+		case e_node_member_access:
+		{
+			add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
 		} break;
 
 		invalid_default_case;
@@ -134,7 +156,7 @@ func void generate_statement(s_node* node, int base_register)
 			if(node->var_decl.val)
 			{
 				generate_expr(node->var_decl.val, base_register);
-				add_expr({.type = e_expr_register_to_var, .a = {.val = node->stack_offset}, .b = {.val = base_register}});
+				add_expr({.type = e_expr_reg_to_var, .a = {.val = node->stack_offset}, .b = {.val = base_register}});
 			}
 		} break;
 
@@ -155,8 +177,8 @@ func void generate_statement(s_node* node, int base_register)
 			if(nfor.reverse)
 			{
 				generate_expr(expr, base_register + 1);
-				add_expr({.type = e_expr_register_dec, .a = {.val = base_register + 1}});
-				add_expr({.type = e_expr_register_to_var, .a = {.val = node->stack_offset}, .b = {.val = base_register + 1}});
+				add_expr({.type = e_expr_reg_dec, .a = {.val = base_register + 1}});
+				add_expr({.type = e_expr_reg_to_var, .a = {.val = node->stack_offset}, .b = {.val = base_register + 1}});
 
 				comparison_index = add_expr(
 					{.type = e_expr_cmp_var_immediate, .a = {.val = node->stack_offset}, .b = {.val = 0}}
@@ -173,7 +195,7 @@ func void generate_statement(s_node* node, int base_register)
 				// Otherwise, we need to reference a variable
 				generate_expr(expr, base_register + 1);
 				comparison_index = add_expr(
-					{.type = e_expr_cmp_var_register, .a = {.val = node->stack_offset}, .b = {.val = base_register + 1}}
+					{.type = e_expr_cmp_var_reg, .a = {.val = node->stack_offset}, .b = {.val = base_register + 1}}
 				);
 
 				// @Note(tkap, 24/07/2023): Go to end of loop. We don't yet know to which instruction we have to jump, hence the -1
@@ -185,17 +207,17 @@ func void generate_statement(s_node* node, int base_register)
 
 
 			// @Note(tkap, 24/07/2023): Increment loop variable, go back to compare
-			int inc_loop_index = add_expr({.type = e_expr_var_to_register, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
+			int inc_loop_index = add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
 			if(nfor.reverse)
 			{
-				add_expr({.type = e_expr_register_dec, .a = {.val = base_register}});
+				add_expr({.type = e_expr_reg_dec, .a = {.val = base_register}});
 			}
 			else
 			{
-				add_expr({.type = e_expr_register_inc, .a = {.val = base_register}});
+				add_expr({.type = e_expr_reg_inc, .a = {.val = base_register}});
 			}
 
-			add_expr({.type = e_expr_register_to_var, .a = {.val = node->stack_offset}, .b = {.val = base_register}});
+			add_expr({.type = e_expr_reg_to_var, .a = {.val = node->stack_offset}, .b = {.val = base_register}});
 			int temp_index = add_expr({.type = e_expr_jump, .a = {.val = comparison_index}});
 
 			foreach(break_index_i, break_index, g_code_gen_data.break_indices)
@@ -259,22 +281,23 @@ func void generate_statement(s_node* node, int base_register)
 
 		case e_node_assign:
 		{
-			generate_expr(node->arithmetic.right, base_register);
-			add_expr({.type = e_expr_register_to_var, .a = {.val = node->arithmetic.left->var_data.id}, .b = {.val = base_register}});
+			generate_expr_address(node->arithmetic.left, base_register);
+			generate_expr(node->arithmetic.right, base_register + 1);
+			add_expr({.type = e_expr_reg_to_var_from_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
 		} break;
 
 		case e_node_plus_equals:
 		{
 			generate_expr(node->arithmetic.right, base_register);
-			add_expr({.type = e_expr_add_register_to_var, .a = {.val = node->arithmetic.left->stack_offset}, .b = {.val = base_register}});
+			add_expr({.type = e_expr_add_reg_to_var, .a = {.val = node->arithmetic.left->stack_offset}, .b = {.val = base_register}});
 		} break;
 
 		case e_node_times_equals:
 		{
-			add_expr({.type = e_expr_var_to_register, .a = {.val = base_register}, .b = {.val = node->arithmetic.left->stack_offset}});
+			add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register}, .b = {.val = node->arithmetic.left->stack_offset}});
 			generate_expr(node->arithmetic.right, base_register + 1);
 			add_expr({.type = e_expr_imul2_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
-			add_expr({.type = e_expr_register_to_var, .a = {.val = node->arithmetic.left->stack_offset}, .b = {.val = base_register}});
+			add_expr({.type = e_expr_reg_to_var, .a = {.val = node->arithmetic.left->stack_offset}, .b = {.val = base_register}});
 		} break;
 
 		case e_node_break:
@@ -405,18 +428,4 @@ func void generate_code(s_node* ast)
 func int add_expr(s_expr expr)
 {
 	return g_exprs.add(expr);
-}
-
-func s64 get_var_id(s_node* node)
-{
-	switch(node->type)
-	{
-		case e_node_identifier:
-		{
-			return node->var_data.id;
-		} break;
-
-		invalid_default_case;
-	}
-	return -1;
 }

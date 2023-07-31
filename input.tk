@@ -1,8 +1,14 @@
 
+struct s_foo
+{
+	int a;
+	int b;
+}
+
 func int main()
 {
-	int a = 1;
-	int b = 8;
-	a *= b;
-	print(a);
+	s_foo foo;
+	foo.b = 5;
+	foo.b += 10;
+	print(foo.b);
 }

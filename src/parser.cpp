@@ -376,6 +376,7 @@ func s_parse_result parse_struct(s_tokenizer tokenizer, s_error_reporter* report
 			reporter->fatal(tokenizer.line_num, file, "Expected type");
 		}
 		tokenizer = pr.tokenizer;
+		member.type = e_node_struct_member;
 		member.struct_member.type = make_node(pr.node);
 
 		if(!consume_token(e_token_identifier, &tokenizer, &token))

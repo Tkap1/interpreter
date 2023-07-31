@@ -32,6 +32,7 @@ enum e_node
 	e_node_str,
 	e_node_unary,
 	e_node_struct,
+	e_node_struct_member,
 	e_node_member_access,
 };
 
@@ -64,8 +65,6 @@ struct s_node
 	e_node type;
 	s_node* next;
 
-	// @Fixme(tkap, 25/07/2023): Bad name. Probably something like "type_checked_data"
-	s_type_check_var var_data;
 	int stack_offset;
 	int size;
 	s_node* type_node;
@@ -101,6 +100,7 @@ struct s_node
 
 		struct
 		{
+			int bytes_used_by_members;
 			int* member_count;
 			s_node* members;
 			s_str<64> name;
