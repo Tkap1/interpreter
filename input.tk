@@ -1,14 +1,32 @@
 
-struct s_foo
+struct s_color
 {
-	int a;
-	int b;
+	u8 r;
+	u8 g;
+	u8 b;
+	u8 a;
 }
+
+external_func int printf(char*, int) "msvcrt.dll";
+external_func void InitWindow(int, int, char*) "raylib.dll";
+external_func void BeginDrawing() "raylib.dll";
+external_func void EndDrawing() "raylib.dll";
+external_func void ClearBackground(s_color) "raylib.dll";
+
+external_func void CloseWindow() "raylib.dll";
 
 func int main()
 {
-	s_foo foo;
-	foo.b = 5;
-	foo.b += 10;
-	print(foo.b);
+	InitWindow(800, 600, "cakez77");
+
+	s_color c;
+
+	for 1000000
+	{
+		BeginDrawing();
+		ClearBackground(c);
+		EndDrawing();
+	}
+
+	CloseWindow();
 }

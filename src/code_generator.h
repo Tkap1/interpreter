@@ -17,7 +17,8 @@ enum e_type
 struct s_type
 {
 	int pointer_level;
-	e_type type;
+	// e_type type;
+	s_node* type;
 };
 
 struct s_func

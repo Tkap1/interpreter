@@ -337,23 +337,22 @@ func void generate_code(s_node* ast)
 			case e_node_func_decl:
 			{
 				auto func_decl = &node->func_decl;
-				#if 0
 				if(func_decl->external)
 				{
-					s_type_instance return_type = get_type_instance(node->func_decl.return_type);
+					// s_type_instance return_type = get_type_instance(node->func_decl.return_type);
 					s_func f = zero;
 					f.id = node->func_decl.id;
-					f.return_type.pointer_level = return_type.pointer_level;
+					// f.return_type.pointer_level = return_type.pointer_level;
 
 					// @Fixme(tkap, 26/07/2023): I don't think these types match
-					f.return_type.type = (e_type)return_type.type->ntype.id;
+					// f.return_type.type = (e_type)return_type.type->ntype.id;
 
 					for_node(arg, func_decl->args)
 					{
-						s_type_instance arg_type = get_type_instance(arg);
 						s_type new_arg = zero;
-						new_arg.pointer_level = arg_type.pointer_level;
-						new_arg.type = (e_type)arg_type.type->ntype.id;
+						new_arg.pointer_level = arg->func_arg.type->pointer_level;
+						// new_arg.type = (e_type)arg->func_arg.type->type_node->ntype.id;
+						new_arg.type = arg->func_arg.type->type_node;
 						f.args.add(new_arg);
 					}
 
@@ -391,7 +390,6 @@ func void generate_code(s_node* ast)
 					g_code_gen_data.external_funcs.add(f);
 				}
 				else
-				#endif
 				{
 					add_expr({.type = e_expr_set_stack_base});
 					add_expr({.type = e_expr_add_stack_pointer, .a = {.val = func_decl->bytes_used_by_local_variables}});
@@ -401,21 +399,6 @@ func void generate_code(s_node* ast)
 					}
 
 					g_func_first_expr_index[func_decl->id] = g_exprs.count;
-
-					// for_node(arg, func_decl->args)
-					// {
-					// 	s_var var = zero;
-					// 	var.id = g_id++;
-					// 	g_vars.add(var);
-					// }
-
-					// @Note(tkap, 26/07/2023): Pop into arguments in reverse
-					// for(int i = 0; i < func_decl->arg_count; i++)
-					// {
-					// 	int index = g_vars.count - 1 - i;
-					// 	assert(index >= 0);
-					// 	add_expr({.type = e_expr_pop_var, .a = {.val = index}});
-					// }
 
 					generate_statement(func_decl->body, e_register_eax);
 					add_expr({.type = e_expr_return});

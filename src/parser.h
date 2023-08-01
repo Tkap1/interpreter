@@ -67,6 +67,7 @@ struct s_node
 
 	int stack_offset;
 	int size;
+	int pointer_level;
 	s_node* type_node;
 	s_node* func_node;
 

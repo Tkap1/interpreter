@@ -137,7 +137,8 @@ func s_node* node_to_type(s_node* node)
 
 func void type_check_expr(s_node* node, char* file, s_node* func_decl)
 {
-	// @TODO(tkap, 31/07/2023):
+	unreferenced(func_decl);
+
 	switch(node->type)
 	{
 		case e_node_identifier:
@@ -189,6 +190,12 @@ func void type_check_expr(s_node* node, char* file, s_node* func_decl)
 
 		} break;
 
+		case e_node_str:
+		{
+			node->type_node = get_type_by_name("char");
+			node->pointer_level = 1;
+		} break;
+
 		invalid_default_case;
 	}
 }
@@ -221,6 +228,7 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_st
 			assert(type);
 			node->type_node = type;
 			node->size = type->ntype.size_in_bytes;
+			node->pointer_level = node->ntype.pointer_level;
 		} break;
 
 		case e_node_var_decl:
@@ -383,16 +391,23 @@ func void type_check(s_node* ast, char* file)
 			{
 
 				node->func_decl.id = g_type_check_data.next_func_id++;
-				g_type_check_data.funcs.add(*node);
 
 				type_check_push_scope();
 				auto func_decl = &node->func_decl;
+				type_check_statement(func_decl->return_type, file, null);
 				for_node(arg, func_decl->args)
 				{
 					type_check_statement(arg, file, node);
 				}
-				type_check_statement(func_decl->body, file, node);
+
+				if(!func_decl->external)
+				{
+					type_check_statement(func_decl->body, file, node);
+				}
 				type_check_pop_scope();
+
+				g_type_check_data.funcs.add(*node);
+
 			} break;
 
 			case e_node_struct:

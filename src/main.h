@@ -30,8 +30,7 @@ struct s_code_exec_data
 {
 	s64 stack_pointer;
 	s64 stack_base;
-	s_sarray<s_val, 1024> stack;
-	u8 stack_[8192];
+	u8 stack[8192];
 };
 
 
