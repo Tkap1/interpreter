@@ -41,6 +41,7 @@ enum e_unary
 {
 	e_unary_dereference,
 	e_unary_address_of,
+	e_unary_logical_not,
 };
 
 struct s_node;

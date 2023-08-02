@@ -198,6 +198,21 @@ func void type_check_expr(s_node* node, char* file, s_node* func_decl)
 			node->pointer_level = 1;
 		} break;
 
+		case e_node_unary:
+		{
+			switch(node->unary.type)
+			{
+				case e_unary_logical_not:
+				{
+					type_check_expr(node->unary.expr, file, null);
+					// @TODO(tkap, 02/08/2023): check that this can be used as bool
+				} break;
+
+				invalid_default_case;
+			}
+
+		} break;
+
 		invalid_default_case;
 	}
 }

@@ -116,6 +116,8 @@ func void do_tests()
 		{.file = "tests/struct2.tk", .expected_result = 4},
 		{.file = "tests/struct3.tk", .expected_result = 6},
 		{.file = "tests/struct4.tk", .expected_result = 255},
+		{.file = "tests/bool1.tk", .expected_result = 88},
+		{.file = "tests/bool2.tk", .expected_result = 11},
 	};
 
 	for(int test_i = 0; test_i < array_count(c_tests); test_i++)
@@ -384,23 +386,6 @@ func s64 execute_expr(s_expr expr)
 		// 	var->val = g_code_exec_data.stack.pop();
 		// } break;
 
-		case e_expr_cmp:
-		{
-			s_var var = *get_var(expr.a.val);
-			if(var.val.val_s64 == expr.b.val)
-			{
-				g_flag = e_flag_equal;
-			}
-			else if(var.val.val_s64 > expr.b.val)
-			{
-				g_flag = e_flag_greater;
-			}
-			else if(var.val.val_s64 < expr.b.val)
-			{
-				g_flag = e_flag_lesser;
-			}
-		} break;
-
 		case e_expr_return:
 		{
 			if(g_call_stack.count == 0)
@@ -421,35 +406,13 @@ func s64 execute_expr(s_expr expr)
 				"cmp [stack_base + %lli](%lli), %s(%lli)\n",
 				expr.a.val, val, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
 			);
-			if(val == g_registers[expr.b.val].val_s64)
-			{
-				g_flag = e_flag_equal;
-			}
-			else if(val > g_registers[expr.b.val].val_s64)
-			{
-				g_flag = e_flag_greater;
-			}
-			else if(val < g_registers[expr.b.val].val_s64)
-			{
-				g_flag = e_flag_lesser;
-			}
+			do_compare(val, g_registers[expr.b.val].val_s64);
 		} break;
 
 		case e_expr_cmp_var_immediate:
 		{
 			s64 val = *(s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val];
-			if(val == expr.b.val)
-			{
-				g_flag = e_flag_equal;
-			}
-			else if(val > expr.b.val)
-			{
-				g_flag = e_flag_greater;
-			}
-			else if(val < expr.b.val)
-			{
-				g_flag = e_flag_lesser;
-			}
+			do_compare(val, expr.b.val);
 		} break;
 
 		case e_expr_cmp_reg_reg:
@@ -458,18 +421,16 @@ func s64 execute_expr(s_expr expr)
 				"cmp %s(%lli) %s(%lli)\n",
 				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
 			);
-			if(g_registers[expr.a.val].val_s64 == g_registers[expr.b.val].val_s64)
-			{
-				g_flag = e_flag_equal;
-			}
-			else if(g_registers[expr.a.val].val_s64 > g_registers[expr.b.val].val_s64)
-			{
-				g_flag = e_flag_greater;
-			}
-			else if(g_registers[expr.a.val].val_s64 < g_registers[expr.b.val].val_s64)
-			{
-				g_flag = e_flag_lesser;
-			}
+			do_compare(g_registers[expr.a.val].val_s64, g_registers[expr.b.val].val_s64);
+		} break;
+
+		case e_expr_cmp_reg_immediate:
+		{
+			dprint(
+				"cmp %s(%lli) %lli\n",
+				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, expr.b.val
+			);
+			do_compare(g_registers[expr.a.val].val_s64, expr.b.val);
 		} break;
 
 		case e_expr_jump_greater:
@@ -790,10 +751,6 @@ func void print_exprs()
 				printf("[stack_base + %s] = %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
 			} break;
 
-			case e_expr_cmp:
-			{
-				printf("cmp\n");
-			} break;
 
 			case e_expr_jump_greater:
 			{
@@ -958,4 +915,20 @@ func s_var* get_var(s64 id)
 	unreferenced(id);
 	assert(false);
 	return null;
+}
+
+func void do_compare(s64 a, s64 b)
+{
+	if(a == b)
+	{
+		g_flag = e_flag_equal;
+	}
+	else if(a > b)
+	{
+		g_flag = e_flag_greater;
+	}
+	else if(a < b)
+	{
+		g_flag = e_flag_lesser;
+	}
 }

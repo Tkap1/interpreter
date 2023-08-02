@@ -145,6 +145,11 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 					// s64 var_id = get_var_id(unary->expr);
 					// add_expr({.type = e_expr_lea_reg_var, .a = {.val = base_register}, .b = {.val = var_id}});
 				} break;
+
+				case e_unary_logical_not:
+				{
+
+				} break;
 				invalid_default_case;
 
 			}
@@ -272,7 +277,12 @@ func void generate_statement(s_node* node, int base_register)
 					jump_index = add_expr({.type = e_expr_jump_not_equal, .a = {.val = -1}});
 				} break;
 
-				invalid_default_case;
+				// @Note(tkap, 02/08/2023): This handles things like "if 55"
+				default:
+				{
+					add_expr({.type = e_expr_cmp_reg_immediate, .a = {.val = base_register}, .b = {.val = 0}});
+					jump_index = add_expr({.type = e_expr_jump_equal, .a = {.val = -1}});
+				} break;
 			}
 			generate_statement(node->nif.body, base_register);
 			g_exprs[jump_index].a.val = g_exprs.count;

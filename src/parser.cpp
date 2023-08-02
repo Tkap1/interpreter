@@ -186,6 +186,7 @@ func s_parse_result parse_sub_expr(s_tokenizer tokenizer, s_error_reporter* repo
 	constexpr s_operator operators[] = {
 		{.type = e_unary_dereference, .str = "*"},
 		{.type = e_unary_address_of, .str = "&"},
+		{.type = e_unary_logical_not, .str = "!"},
 	};
 
 	for(int operator_i = 0; operator_i < array_count(operators); operator_i++)
@@ -603,10 +604,11 @@ func int get_unary_operator_level(char* str)
 {
 	if(
 		strcmp(str, "&") == 0 ||
-		strcmp(str, "*") == 0
+		strcmp(str, "*") == 0 ||
+		strcmp(str, "!") == 0
 	)
 	{
-		return 50;
+		return 180;
 	}
 
 	assert(false);
@@ -655,7 +657,7 @@ func int get_operator_level(char* str)
 		strcmp(str, ".") == 0
 	)
 	{
-		return 30;
+		return 190;
 	}
 
 	assert(false);

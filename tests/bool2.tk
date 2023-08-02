@@ -1,0 +1,11 @@
+
+
+func int main()
+{
+	int result = 11;
+	if !77
+	{
+		result = 88;
+	}
+	return result;
+}

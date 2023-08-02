@@ -47,19 +47,19 @@ func int main()
 		BeginDrawing();
 		ClearBackground(c);
 
-		if IsKeyDown(65) == 1
+		if IsKeyDown(65)
 		{
 			x -= 10;
 		}
-		if IsKeyDown(68) == 1
+		if IsKeyDown(68)
 		{
 			x += 10;
 		}
-		if IsKeyDown(87) == 1
+		if IsKeyDown(87)
 		{
 			y -= 10;
 		}
-		if IsKeyDown(83) == 1
+		if IsKeyDown(83)
 		{
 			y += 10;
 		}
