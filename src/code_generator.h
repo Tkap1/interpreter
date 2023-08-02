@@ -57,7 +57,7 @@ enum e_register
 	e_register_eex,
 	e_register_efx,
 	e_register_egx,
-	e_register_count,
+	e_register_count = 128,
 };
 
 enum e_flag
@@ -129,6 +129,7 @@ union s_foo
 
 struct s_gen_data
 {
+	int members;
 	e_node comparison;
 };
 

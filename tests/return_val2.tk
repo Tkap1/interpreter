@@ -1,0 +1,24 @@
+
+
+struct s_foo
+{
+	int a;
+	int b;
+	int c;
+	int d;
+}
+
+func int func_a(s_foo foo)
+{
+	return foo.a + foo.b + foo.c + foo.d;
+}
+
+func int main()
+{
+	s_foo foo;
+	foo.a = 1;
+	foo.b = 2;
+	foo.c = 3;
+	foo.d = 4;
+	return func_a(foo);
+}

@@ -1,0 +1,41 @@
+
+
+struct s_color
+{
+	u8 r;
+	u8 g;
+	u8 b;
+	u8 a;
+}
+
+func u8 func_a(s_color color)
+{
+	return color.a;
+}
+
+func void func_b(int x, int y, int sx, int sy, s_color color)
+{
+}
+
+func int main()
+{
+	s_color white;
+	white.r = 51;
+	white.g = 51;
+	white.b = 51;
+	white.a = 255;
+
+	s_color red;
+	red.r = 255;
+	red.g = 0;
+	red.b = 0;
+	red.a = 255;
+
+	int x = 0;
+	for 1
+	{
+		return func_a(white);
+		func_b(x, 100, 128, 128, red);
+		x += 1;
+	}
+}

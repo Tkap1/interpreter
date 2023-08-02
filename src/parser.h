@@ -102,7 +102,7 @@ struct s_node
 		struct
 		{
 			int bytes_used_by_members;
-			int* member_count;
+			int member_count;
 			s_node* members;
 			s_str<64> name;
 		} nstruct;

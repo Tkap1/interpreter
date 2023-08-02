@@ -17,6 +17,7 @@ func void generate_expr_address(s_node* node, int base_register)
 func s_gen_data generate_expr(s_node* node, int base_register)
 {
 	s_gen_data result = zero;
+	result.members = 1;
 	assert(base_register < e_register_count);
 	switch(node->type)
 	{
@@ -49,9 +50,13 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 				int i = 0;
 				for_node(expr, node->func_call.args)
 				{
-					generate_expr(expr, base_register + i);
-					add_expr({.type = e_expr_push_reg, .a = {.val = base_register + i}});
-					i += 1;
+					s_gen_data temp_data = generate_expr(expr, base_register + i);
+					result.members = temp_data.members;
+					for(int j = 0; j < temp_data.members; j++)
+					{
+						add_expr({.type = e_expr_push_reg, .a = {.val = base_register + i + j}});
+					}
+					i += temp_data.members;
 				}
 				if(node->func_node->func_decl.external)
 				{
@@ -98,7 +103,20 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 
 		case e_node_identifier:
 		{
-			add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
+			if(node->type_node->type == e_node_struct)
+			{
+				result.members = node->type_node->nstruct.member_count;
+				int i = 0;
+				for_node(member, node->type_node->nstruct.members)
+				{
+					add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register + i}, .b = {.val = node->stack_offset + member->stack_offset}});
+					i += 1;
+				}
+			}
+			else
+			{
+				add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
+			}
 		} break;
 
 		case e_node_equals:
@@ -339,10 +357,11 @@ func void generate_code(s_node* ast)
 				auto func_decl = &node->func_decl;
 				if(func_decl->external)
 				{
-					// s_type_instance return_type = get_type_instance(node->func_decl.return_type);
 					s_func f = zero;
 					f.id = node->func_decl.id;
-					// f.return_type.pointer_level = return_type.pointer_level;
+					f.return_type.pointer_level = node->func_decl.return_type->pointer_level;
+					assert(node->func_decl.return_type->type_node);
+					f.return_type.type = node->func_decl.return_type->type_node;
 
 					// @Fixme(tkap, 26/07/2023): I don't think these types match
 					// f.return_type.type = (e_type)return_type.type->ntype.id;
@@ -391,6 +410,7 @@ func void generate_code(s_node* ast)
 				}
 				else
 				{
+					g_func_first_expr_index[func_decl->id] = g_exprs.count;
 					add_expr({.type = e_expr_set_stack_base});
 					add_expr({.type = e_expr_add_stack_pointer, .a = {.val = func_decl->bytes_used_by_local_variables}});
 					if(func_decl->name.equals("main"))
@@ -398,7 +418,6 @@ func void generate_code(s_node* ast)
 						g_exprs[0].a.val = func_decl->id;
 					}
 
-					g_func_first_expr_index[func_decl->id] = g_exprs.count;
 
 					generate_statement(func_decl->body, e_register_eax);
 					add_expr({.type = e_expr_return});

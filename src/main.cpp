@@ -1,5 +1,5 @@
 
-#include "external/dyncall.h"
+#include "dyncall.h"
 
 #include "tklib.h"
 #include "parser.h"
@@ -68,7 +68,7 @@ int main(int argc, char** argv)
 			if(g_instruction_pointer == c_return_value) { break; }
 		}
 
-		#ifdef m_verbose
+		#ifdef m_show_asm
 		printf("------\n");
 		print_exprs();
 		printf("@@@@@@\n");
@@ -106,14 +106,16 @@ func void do_tests()
 	};
 
 	constexpr s_test_data c_tests[] = {
+		{.file = "tests/return_val1.tk", .expected_result = 11},
 		{.file = "tests/factorial.tk", .expected_result = 3628800},
 		{.file = "tests/fibonacci.tk", .expected_result = 55},
 		{.file = "tests/prime.tk", .expected_result = 79},
 		{.file = "tests/break2.tk", .expected_result = 2},
-		{.file = "tests/return_val1.tk", .expected_result = 11},
+		{.file = "tests/return_val2.tk", .expected_result = 10},
 		{.file = "tests/struct1.tk", .expected_result = 5},
 		{.file = "tests/struct2.tk", .expected_result = 4},
 		{.file = "tests/struct3.tk", .expected_result = 6},
+		{.file = "tests/struct4.tk", .expected_result = 255},
 	};
 
 	for(int test_i = 0; test_i < array_count(c_tests); test_i++)
@@ -212,13 +214,55 @@ func s64 execute_expr(s_expr expr)
 		{
 			s_func f = get_func_by_id(expr.a.val);
 
+			dprint("call external %lli\n", expr.a.val);
+
 			dcReset(g_vm);
 
-			int temp_offset = 8 * f.args.count;
+			s_sarray<int, 128> offsets;
+			int temp_offset = g_code_exec_data.stack_pointer;
 			foreach_raw(arg_i, arg, f.args)
 			{
-				void* val = (void*)&g_code_exec_data.stack[g_code_exec_data.stack_pointer - temp_offset];
-				temp_offset -= 8;
+				if(arg.pointer_level > 0)
+				{
+					temp_offset -= 8;
+					offsets.insert(0, temp_offset);
+				}
+				else
+				{
+					switch(arg.type->ntype.id)
+					{
+						case e_type_int:
+						{
+							temp_offset -= 8;
+							offsets.insert(0, temp_offset);
+						} break;
+
+						case e_type_char:
+						{
+							temp_offset -= 8;
+							offsets.insert(0, temp_offset);
+						} break;
+
+						default:
+						{
+							assert(arg.type->type == e_node_struct);
+							auto nstruct = arg.type->nstruct;
+							for_node(member, nstruct.members)
+							{
+								temp_offset -= 8;
+								offsets.insert(0, temp_offset);
+							}
+						} break;
+					}
+				}
+			}
+			g_code_exec_data.stack_pointer = temp_offset;
+			assert(g_code_exec_data.stack_pointer >= 0);
+
+			int offset_index = 0;
+			foreach_raw(arg_i, arg, f.args)
+			{
+				void* val = (void*)&g_code_exec_data.stack[offsets[offset_index]];
 
 				if(arg.pointer_level > 0)
 				{
@@ -241,15 +285,60 @@ func s64 execute_expr(s_expr expr)
 
 						default:
 						{
-							assert(false);
+							assert(arg.type->type == e_node_struct);
+
+							auto nstruct = arg.type->nstruct;
+
+							int i = 0;
+							struct s_color
+							{
+								u8 r;
+								u8 g;
+								u8 b;
+								u8 a;
+							};
+							s_color c = {255,255,255,255};
+							DCaggr* dcs = dcNewAggr(4, sizeof(s_color));
+							dcAggrField(dcs, DC_SIGCHAR_UCHAR, 0, 1);
+							dcAggrField(dcs, DC_SIGCHAR_UCHAR, 1, 1);
+							dcAggrField(dcs, DC_SIGCHAR_UCHAR, 2, 1);
+							dcAggrField(dcs, DC_SIGCHAR_UCHAR, 3, 1);
+
+							u8* wtf[] = {&c.r, &c.g, &c.b, &c.a};
+
+							for_node(member, nstruct.members)
+							{
+								// if(i == 0) { dcStructField(dcs, DC_SIGCHAR_UCHAR, offsetof(s_color, r), 1); }
+								// if(i == 1) { dcStructField(dcs, DC_SIGCHAR_UCHAR, offsetof(s_color, g), 1); }
+								// if(i == 2) { dcStructField(dcs, DC_SIGCHAR_UCHAR, offsetof(s_color, b), 1); }
+								// if(i == 3) { dcStructField(dcs, DC_SIGCHAR_UCHAR, offsetof(s_color, a), 1); }
+								// dcStructField(dcs, DC_SIGCHAR_UCHAR, DEFAULT_ALIGNMENT, 0);
+
+								val = (void*)&g_code_exec_data.stack[offsets[offset_index]];
+								switch(member->struct_member.type->type_node->ntype.id)
+								{
+									case e_type_u8:
+									{
+										*wtf[i] = *(u8*)val;
+									} break;
+									invalid_default_case;
+								}
+								offset_index += 1;
+								i += 1;
+							}
+							dcCloseAggr(dcs);
+							dcArgAggr(g_vm, dcs, &c);
+							dcFreeAggr(dcs);
+
+							// @Hack(tkap, 01/08/2023): Because we increment at the end
+							offset_index -= 1;
 						} break;
 					}
 				}
+				offset_index += 1;
 			}
 			// @TODO(tkap, 26/07/2023): return value
-			// switch(f.return_type.type->ntype.id)
-			// @Fixme(tkap, 01/08/2023):
-			switch(e_type_void)
+			switch(f.return_type.type->ntype.id)
 			{
 				case e_type_void:
 				{
@@ -565,6 +654,10 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_set_stack_base:
 		{
+			dprint(
+				"stack_base = stack_pointer(%lli)\n",
+				g_code_exec_data.stack_pointer
+			);
 			g_code_exec_data.stack_base = g_code_exec_data.stack_pointer;
 		} break;
 
@@ -613,6 +706,15 @@ func s64 execute_expr(s_expr expr)
 				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, expr.b.val
 			);
 			g_registers[expr.a.val].val_s64 = expr.b.val;
+		} break;
+
+		case e_expr_add_stack_pointer:
+		{
+			dprint(
+				"stack_pointer(%lli) += %lli\n",
+				g_code_exec_data.stack_pointer, expr.a.val
+			);
+			g_code_exec_data.stack_pointer += expr.a.val;
 		} break;
 
 		invalid_default_case;
@@ -819,40 +921,11 @@ func void print_exprs()
 
 func char* register_to_str(int reg)
 {
-	switch(reg)
-	{
-		case e_register_eax:
-		{
-			return "eax";
-		} break;
-		case e_register_ebx:
-		{
-			return "ebx";
-		} break;
-		case e_register_ecx:
-		{
-			return "ecx";
-		} break;
-		case e_register_edx:
-		{
-			return "edx";
-		} break;
-		case e_register_eex:
-		{
-			return "eex";
-		} break;
-		case e_register_efx:
-		{
-			return "efx";
-		} break;
-		case e_register_egx:
-		{
-			return "egx";
-		} break;
-
-		invalid_default_case;
-	}
-	return "";
+	char buff[4] = zero;
+	buff[0] = 'e';
+	buff[1] = 'a' + reg;
+	buff[2] = 'x';
+	return format_text("%s", buff);
 }
 
 func void reset_globals()

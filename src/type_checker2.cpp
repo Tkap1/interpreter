@@ -145,6 +145,8 @@ func void type_check_expr(s_node* node, char* file, s_node* func_decl)
 		{
 			s_node* var = node_to_var(node);
 			assert(var);
+			assert(var->type_node);
+			node->type_node = var->type_node;
 			node->stack_offset = var->stack_offset;
 		} break;
 
@@ -182,7 +184,7 @@ func void type_check_expr(s_node* node, char* file, s_node* func_decl)
 			// @TODO(tkap, 31/07/2023): Check that right side exists in right side struct
 			s_node* var = node_to_var(node->arithmetic.left);
 			assert(var);
-			s_node* type = node_to_type(var->var_decl.ntype);
+			s_node* type = var->type_node;
 			assert(type);
 			s_node* member = node_to_struct_member(type, node->arithmetic.right);
 			assert(member);
@@ -216,8 +218,10 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_st
 		case e_node_func_arg:
 		{
 			type_check_statement(node->func_arg.type, file, null);
-			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args;
 			func_decl_or_struct->func_decl.bytes_used_by_args += node->func_arg.type->size;
+			node->stack_offset = -func_decl_or_struct->func_decl.bytes_used_by_args;
+			assert(node->func_arg.type->type_node);
+			node->type_node = node->func_arg.type->type_node;
 
 			add_var(*node);
 		} break;
@@ -234,11 +238,15 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_st
 		case e_node_var_decl:
 		{
 			type_check_statement(node->var_decl.ntype, file, null);
+			assert(node->var_decl.ntype->type_node);
+			node->type_node = node->var_decl.ntype->type_node;
+
 			if(node->var_decl.val)
 			{
 				type_check_expr(node->var_decl.val, file, null);
 			}
 			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args + func_decl_or_struct->func_decl.bytes_used_by_local_variables;
+			assert(node->var_decl.ntype->size > 0);
 			func_decl_or_struct->func_decl.bytes_used_by_local_variables += node->var_decl.ntype->size;
 
 			add_var(*node);
@@ -262,6 +270,7 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_st
 			new_node.type = e_node_var_decl;
 			new_node.stack_offset = node->stack_offset;
 			new_node.var_decl.ntype = node_to_type(node->nfor.expr);
+			new_node.type_node = get_type_by_name("int");
 			if(node->nfor.name.len > 0)
 			{
 				new_node.var_decl.name = node->nfor.name;
@@ -326,6 +335,7 @@ func void type_check(s_node* ast, char* file)
 
 	s_error_reporter reporter = zero;
 
+	// @Fixme(tkap, 02/08/2023): remove this DOG
 	{
 		s_node f = zero;
 		f.type = e_node_func_decl;

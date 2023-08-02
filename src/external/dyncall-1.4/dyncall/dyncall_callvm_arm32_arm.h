@@ -1,12 +1,12 @@
 /*
 
  Package: dyncall
- Library: dyncallback
- File: dyncallback/dyncall_alloc_wx.h
- Description: Allocate write/executable memory - Interface
+ Library: dyncall
+ File: dyncall/dyncall_callvm_arm32_arm.h
+ Description: 
  License:
 
-   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>,
+   Copyright (c) 2007-2020 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -24,25 +24,32 @@
 */
 
 
-#ifndef DYNCALL_ALLOC_WX_HPP
-#define DYNCALL_ALLOC_WX_HPP
 
-#include "dyncall_types.h"
+/*
 
-typedef int DCerror;
+  dyncall callvm for 32bit ARM32 family of processors
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+  SUPPORTED CALLING CONVENTIONS
+  armcall
 
-DCerror dcAllocWX   (DCsize size, void** p);
-DCerror dcInitExecWX(void* p, DCsize size);
-void    dcFreeWX    (void* p, DCsize size);
+  REVISION
+  2007/12/11 initial
 
-#ifdef __cplusplus
-}
-#endif
+*/
 
 
-#endif /* DYNCALL_ALLOC_WX_HPP */
+#ifndef DYNCALL_CALLVM_ARM32_ARM_H
+#define DYNCALL_CALLVM_ARM32_ARM_H
+
+#include "dyncall_callvm.h"
+#include "dyncall_vector.h"
+
+typedef struct
+{
+  DCCallVM  mInterface;
+  DCpointer mpCallFunc;
+  DCVecHead mVecHead;
+} DCCallVM_arm32_arm;
+
+#endif /* DYNCALL_CALLVM_ARM32_ARM_H */
 

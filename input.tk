@@ -12,7 +12,8 @@ external_func void InitWindow(int, int, char*) "raylib.dll";
 external_func void BeginDrawing() "raylib.dll";
 external_func void EndDrawing() "raylib.dll";
 external_func void ClearBackground(s_color) "raylib.dll";
-
+external_func bool WindowShouldClose() "raylib.dll";
+external_func void DrawRectangle(int, int, int, int, s_color) "raylib.dll";
 external_func void CloseWindow() "raylib.dll";
 
 func int main()
@@ -20,13 +21,35 @@ func int main()
 	InitWindow(800, 600, "cakez77");
 
 	s_color c;
+	c.r = 51;
+	c.g = 51;
+	c.b = 51;
+	c.a = 255;
 
-	for 1000000
+	s_color red;
+	red.r = 255;
+	red.g = 0;
+	red.b = 0;
+	red.a = 255;
+
+	int x = 0;
+
+	for 100000
 	{
+		if WindowShouldClose() == 1
+		{
+			break;
+		}
 		BeginDrawing();
 		ClearBackground(c);
+
+		DrawRectangle(x, 100, 128, 128, red);
+		x += 1;
+
 		EndDrawing();
 	}
 
 	CloseWindow();
+
+
 }
