@@ -310,6 +310,12 @@ func void generate_statement(s_node* node, int base_register)
 			add_expr({.type = e_expr_add_reg_to_var, .a = {.val = node->arithmetic.left->stack_offset}, .b = {.val = base_register}});
 		} break;
 
+		case e_node_minus_equals:
+		{
+			generate_expr(node->arithmetic.right, base_register);
+			add_expr({.type = e_expr_sub_reg_from_var, .a = {.val = node->arithmetic.left->stack_offset}, .b = {.val = base_register}});
+		} break;
+
 		case e_node_times_equals:
 		{
 			add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register}, .b = {.val = node->arithmetic.left->stack_offset}});

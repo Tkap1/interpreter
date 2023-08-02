@@ -9,6 +9,7 @@ enum e_node
 	e_node_for,
 	e_node_compound,
 	e_node_plus_equals,
+	e_node_minus_equals,
 	e_node_times_equals,
 	e_node_add,
 	e_node_subtract,

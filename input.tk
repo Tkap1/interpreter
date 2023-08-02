@@ -15,9 +15,12 @@ external_func void ClearBackground(s_color) "raylib.dll";
 external_func bool WindowShouldClose() "raylib.dll";
 external_func void DrawRectangle(int, int, int, int, s_color) "raylib.dll";
 external_func void CloseWindow() "raylib.dll";
+external_func bool IsKeyDown(int) "raylib.dll";
+external_func void SetTargetFPS(int) "raylib.dll";
 
 func int main()
 {
+	SetTargetFPS(60);
 	InitWindow(800, 600, "cakez77");
 
 	s_color c;
@@ -33,6 +36,7 @@ func int main()
 	red.a = 255;
 
 	int x = 0;
+	int y = 0;
 
 	for 100000
 	{
@@ -43,8 +47,24 @@ func int main()
 		BeginDrawing();
 		ClearBackground(c);
 
-		DrawRectangle(x, 100, 128, 128, red);
-		x += 1;
+		if IsKeyDown(65) == 1
+		{
+			x -= 10;
+		}
+		if IsKeyDown(68) == 1
+		{
+			x += 10;
+		}
+		if IsKeyDown(87) == 1
+		{
+			y -= 10;
+		}
+		if IsKeyDown(83) == 1
+		{
+			y += 10;
+		}
+
+		DrawRectangle(x, y, 64, 64, red);
 
 		EndDrawing();
 	}

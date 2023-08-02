@@ -296,6 +296,7 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter, char* f
 		} break;
 
 		case e_node_plus_equals:
+		case e_node_minus_equals:
 		case e_node_times_equals:
 		case e_node_assign:
 		{

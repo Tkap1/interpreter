@@ -287,6 +287,7 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_st
 		} break;
 
 		case e_node_plus_equals:
+		case e_node_minus_equals:
 		case e_node_times_equals:
 		case e_node_assign:
 		{

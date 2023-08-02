@@ -72,7 +72,6 @@ enum e_flag
 enum e_expr
 {
 	e_expr_invalid,
-	e_expr_plus_equals,
 	e_expr_var_decl,
 	e_expr_print_immediate,
 	e_expr_print_var,
@@ -98,6 +97,7 @@ enum e_expr
 	e_expr_imul2_reg_var,
 	e_expr_imul3,
 	e_expr_add_reg_to_var,
+	e_expr_sub_reg_from_var,
 	e_expr_reg_mod_reg,
 	e_expr_divide_reg_reg,
 	e_expr_add_reg_reg,

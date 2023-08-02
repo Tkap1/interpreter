@@ -587,6 +587,16 @@ func s64 execute_expr(s_expr expr)
 			*val += g_registers[expr.b.val].val_s64;
 		} break;
 
+		case e_expr_sub_reg_from_var:
+		{
+			s64* val = (s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val];
+			dprint(
+				"[stack_base + %lli](%lli) -= %s(%lli)\n",
+				expr.a.val, *val, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+			);
+			*val -= g_registers[expr.b.val].val_s64;
+		} break;
+
 		case e_expr_divide_reg_reg:
 		{
 			dprint(
@@ -669,13 +679,6 @@ func s64 execute_expr(s_expr expr)
 			// s_var var = zero;
 			// var.id = g_id++;
 			// g_vars.add(var);
-		} break;
-
-		case e_expr_plus_equals:
-		{
-			s_var* left = get_var(expr.a.val);
-			s_var* right = get_var(expr.b.val);
-			left->val.val_s64 += right->val.val_s64;
 		} break;
 
 		case e_expr_print_immediate:

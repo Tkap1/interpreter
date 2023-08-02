@@ -714,6 +714,7 @@ func b8 peek_assignment_token(s_tokenizer tokenizer, e_node* out_type)
 	};
 	constexpr s_op ops[] = {
 		{.type = e_node_plus_equals, .str = "+="},
+		{.type = e_node_minus_equals, .str = "-="},
 		{.type = e_node_times_equals, .str = "*="},
 		{.type = e_node_assign, .str = "="},
 	};
