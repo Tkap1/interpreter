@@ -175,7 +175,6 @@ func s_parse_result parse_sub_expr(s_tokenizer tokenizer, s_error_reporter* repo
 	s_token token = zero;
 	b8 found_comma = true;
 	s_node** arg_target = &result.node.func_call.args;
-	result.node.line = tokenizer.line_num;
 
 	struct s_operator
 	{
@@ -242,6 +241,7 @@ func s_parse_result parse_sub_expr(s_tokenizer tokenizer, s_error_reporter* repo
 	}
 
 	success:
+	result.node.line = tokenizer.line_num;
 	if(consume_token("(", &tokenizer))
 	{
 		s_node temp = zero;
@@ -352,6 +352,7 @@ func s_parse_result parse_expr(s_tokenizer tokenizer, int operator_level, s_erro
 		break;
 	}
 
+	result.node.line = tokenizer.line_num;
 	result.success = true;
 	result.tokenizer = tokenizer;
 
@@ -439,6 +440,7 @@ func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* rep
 	if(var_decl_pr.success)
 	{
 		tokenizer = var_decl_pr.tokenizer;
+		result.node.line = tokenizer.line_num;
 		var_decl->ntype = make_node(var_decl_pr.node);
 
 		result.node.type = e_node_var_decl;
@@ -590,6 +592,7 @@ func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* rep
 		if(!consume_token(";", &tokenizer)) { reporter->fatal(tokenizer.line_num, file, "Expected ';'"); }
 	}
 
+	result.node.line = tokenizer.line_num;
 	result.success = true;
 	result.tokenizer = tokenizer;
 

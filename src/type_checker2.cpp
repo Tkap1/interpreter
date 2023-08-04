@@ -183,8 +183,15 @@ func void type_check_expr(s_node* node, char* file, s_error_reporter* reporter, 
 			// @TODO(tkap, 04/08/2023): Check that types make sense
 			type_check_expr(node->arithmetic.left, file, reporter, null);
 			type_check_expr(node->arithmetic.right, file, reporter, null);
-			assert(node->arithmetic.left);
-			node->type_node = node->arithmetic.left->type_node;
+
+			if(node->arithmetic.right->type_node->ntype.id == e_type_float && node->arithmetic.left->type_node->ntype.id == e_type_int)
+			{
+				node->type_node = node->arithmetic.right->type_node;
+			}
+			else
+			{
+				node->type_node = node->arithmetic.left->type_node;
+			}
 		} break;
 
 		case e_node_member_access:
@@ -222,6 +229,7 @@ func void type_check_expr(s_node* node, char* file, s_error_reporter* reporter, 
 				case e_unary_logical_not:
 				{
 					type_check_expr(node->unary.expr, file, reporter, null);
+					node->type_node = node->unary.expr->type_node;
 					// @TODO(tkap, 02/08/2023): check that this can be used as bool
 				} break;
 
@@ -606,6 +614,11 @@ func char* expr_to_str(s_node* node)
 		case e_node_var_decl:
 		{
 			return format_text("%s", node->var_decl.name.data);
+		} break;
+
+		case e_node_subtract:
+		{
+			return format_text("%s - %s", expr_to_str(node->arithmetic.left), expr_to_str(node->arithmetic.right));
 		} break;
 
 		invalid_default_case;

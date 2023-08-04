@@ -44,11 +44,11 @@ func int main()
 
 	s_v2 pos;
 	s_v2 vel;
-	float speed = 10;
+	float speed = 10.0;
 
 	s_v2 player_size;
-	player_size.x = 16;
-	player_size.y = 40;
+	player_size.x = 16.0;
+	player_size.y = 40.0;
 
 	for 100000
 	{
@@ -62,30 +62,30 @@ func int main()
 		float dir;
 		if IsKeyDown(65)
 		{
-			dir -= 1;
+			dir -= 1.0;
 		}
 		if IsKeyDown(68)
 		{
-			dir += 1;
+			dir += 1.0;
 		}
 
 		vel.x += dir * speed;
-		vel.y += 1;
+		vel.y += 0.05;
 
 		if IsKeyPressed(32)
 		{
-			vel.y = -15;
+			vel.y = -5.0;
 		}
 
 		pos.x += vel.x;
 		pos.y += vel.y;
 
-		if pos.y > wh - player_size.y
+		if pos.y > cast float wh - player_size.y
 		{
-			pos.y = wh - player_size.y;
+			pos.y = cast float wh - player_size.y;
 		}
 
-		vel.x = 0;
+		vel.x = 0.0;
 
 		DrawRectangle(cast int pos.x, cast int pos.y, cast int player_size.x, cast int player_size.y, red);
 

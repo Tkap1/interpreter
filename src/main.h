@@ -45,4 +45,6 @@ func s_parse_file_and_execute_result parse_file_and_execute(char* file, b8 print
 func void reset_globals();
 func s_func get_func_by_id(int id);
 func s_var* get_var(s64 id);
-func void do_compare(s64 a, s64 b);
+
+template <typename t0>
+func void do_compare(t0 a, t0 b);

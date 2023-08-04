@@ -23,3 +23,6 @@ does !!foo work?
 
 
 we probably want assert that things of type e_node_type don't have a type_node set, because that is just confusing
+
+if whatever > int - float FAILS!!
+	we do float float subtraction, which is wrong because one of the args is int!! we need to first convert the int to a float?
