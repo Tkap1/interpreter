@@ -177,10 +177,12 @@ func void type_check_expr(s_node* node, char* file, s_error_reporter* reporter, 
 		case e_node_mod:
 		case e_node_equals:
 		{
-			// @TODO(tkap, 31/07/2023): need to set type_node here?
-
+			// @TODO(tkap, 04/08/2023): We need to handle type promotion and all that shit
+			// @TODO(tkap, 04/08/2023): Check that types make sense
 			type_check_expr(node->arithmetic.left, file, reporter, null);
 			type_check_expr(node->arithmetic.right, file, reporter, null);
+			assert(node->arithmetic.left);
+			node->type_node = node->arithmetic.left->type_node;
 		} break;
 
 		case e_node_member_access:
