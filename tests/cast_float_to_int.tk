@@ -2,7 +2,7 @@
 
 func int main()
 {
-	float foo = 1234;
+	float foo = 1234.0;
 	int result = cast int foo;
 	return result;
 }

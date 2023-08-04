@@ -293,32 +293,13 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 
 			if(node->var_decl.val)
 			{
-				assert(node->var_decl.val->type_node);
-				s_node* type_left = node->type_node;
-				s_node* type_right = node->var_decl.val->type_node;
-				if(
-					type_left->ntype.id != type_right->ntype.id ||
-					node->pointer_level != node->var_decl.val->pointer_level
-				)
+				if(!left_can_have_right_assigned_to_it(node, node->var_decl.val))
 				{
-					// @Note(tkap, 04/08/2023): Allow "float foo = 10;"
-					// if(
-					// 	type_left->ntype.id == e_type_float && type_right->ntype.id == e_type_int &&
-					// 	node->var_decl.val->type == e_node_integer
-					// )
-					// {
-					// 	node->var_decl.val->type_node = get_type_by_name("float");
-					// 	node->var_decl.val->type = e_node_float;
-					// 	node->var_decl.val->nfloat.val = (float)node->var_decl.val->integer.val;
-					// }
-					// else
-					{
-						reporter->error(
-							node->line, file, "Can't assign '%s' of type '%s' to '%s' of type '%s'",
-							expr_to_str(node->var_decl.val), type_to_str(node->var_decl.val->type_node),
-							node->var_decl.name.data, type_to_str(node->var_decl.ntype)
-						);
-					}
+					reporter->error(
+						node->line, file, "Can't assign '%s' of type '%s' to '%s' of type '%s'",
+						expr_to_str(node->var_decl.val), type_to_str(node->var_decl.val->type_node),
+						expr_to_str(node), type_to_str(node->type_node)
+					);
 				}
 			}
 
@@ -366,34 +347,15 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 			type_check_expr(node->arithmetic.left, file, reporter, null);
 			type_check_expr(node->arithmetic.right, file, reporter, null);
 
-			// @Fixme(tkap, 04/08/2023): Copy paste!! We need a function for this!
-			assert(node->arithmetic.left->type_node);
-			s_node* type_left = node->arithmetic.left->type_node;
-			s_node* type_right = node->arithmetic.right->type_node;
-			if(
-				type_left->ntype.id != type_right->ntype.id ||
-				node->arithmetic.left->pointer_level != node->arithmetic.right->pointer_level
-			)
+			if(!left_can_have_right_assigned_to_it(node->arithmetic.left, node->arithmetic.right))
 			{
-				// @Note(tkap, 04/08/2023): Allow "float foo = 10;"
-				// if(
-				// 	type_left->ntype.id == e_type_float && type_right->ntype.id == e_type_int &&
-				// 	node->var_decl.val->type == e_node_integer
-				// )
-				// {
-				// 	node->var_decl.val->type_node = get_type_by_name("float");
-				// 	node->var_decl.val->type = e_node_float;
-				// 	node->var_decl.val->nfloat.val = (float)node->var_decl.val->integer.val;
-				// }
-				// else
-				{
-					reporter->error(
-						node->line, file, "Can't assign '%s' of type '%s' to '%s' of type '%s'",
-						expr_to_str(node->arithmetic.right), type_to_str(node->arithmetic.right->type_node),
-						expr_to_str(node->arithmetic.left), type_to_str(node->arithmetic.left->type_node)
-					);
-				}
+				reporter->error(
+					node->line, file, "Can't assign '%s' of type '%s' to '%s' of type '%s'",
+					expr_to_str(node->arithmetic.right), type_to_str(node->arithmetic.right->type_node),
+					expr_to_str(node->arithmetic.left), type_to_str(node->arithmetic.left->type_node)
+				);
 			}
+
 		} break;
 
 		case e_node_return:
@@ -641,6 +603,11 @@ func char* expr_to_str(s_node* node)
 			return format_text("%s", node->identifier.name.data);
 		} break;
 
+		case e_node_var_decl:
+		{
+			return format_text("%s", node->var_decl.name.data);
+		} break;
+
 		invalid_default_case;
 	}
 	return null;
@@ -660,7 +627,36 @@ func char* type_to_str(s_node* node)
 	return null;
 }
 
-func b8 can_a_be_assigned_to_b(s_node* a, s_node* b)
+func b8 left_can_have_right_assigned_to_it(s_node* left, s_node* right)
 {
+	assert(left->type_node);
+	assert(right->type_node);
 
+	s_node* tleft = left->type_node;
+	s_node* tright = right->type_node;
+	if(
+		tleft->ntype.id != tright->ntype.id ||
+		left->pointer_level != right->pointer_level
+	)
+	{
+		if(tleft->ntype.id == e_type_u8 && tright->ntype.id == e_type_int)
+		{
+			return true;
+		}
+		// @Note(tkap, 04/08/2023): Allow "float foo = 10;"
+		// if(
+		// 	type_left->ntype.id == e_type_float && type_right->ntype.id == e_type_int &&
+		// 	node->var_decl.val->type == e_node_integer
+		// )
+		// {
+		// 	node->var_decl.val->type_node = get_type_by_name("float");
+		// 	node->var_decl.val->type = e_node_float;
+		// 	node->var_decl.val->nfloat.val = (float)node->var_decl.val->integer.val;
+		// }
+		// else
+		{
+			return false;
+		}
+	}
+	return true;
 }

@@ -15,7 +15,7 @@ func int func_a(int x)
 func int main()
 {
 	s_foo foo;
-	foo.y = 456;
+	foo.y = 456.0;
 	int result = func_a(cast int foo.y);
 	return result;
 }
