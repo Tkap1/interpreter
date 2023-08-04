@@ -1,0 +1,8 @@
+
+
+func int main()
+{
+	float foo = 1234;
+	int result = cast int foo;
+	return result;
+}

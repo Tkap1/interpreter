@@ -1,0 +1,14 @@
+
+
+func int func_a(int x)
+{
+	return x;
+}
+
+
+func int main()
+{
+	float foo = 333;
+	int result = func_a(cast int foo);
+	return result;
+}

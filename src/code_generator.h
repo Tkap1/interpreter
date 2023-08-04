@@ -109,6 +109,7 @@ enum e_expr
 	e_expr_add_stack_pointer,
 	e_expr_set_stack_base,
 	e_expr_reg_to_address,
+	e_expr_reg_float_to_int,
 };
 
 

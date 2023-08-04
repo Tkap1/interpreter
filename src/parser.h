@@ -43,6 +43,7 @@ enum e_unary
 	e_unary_dereference,
 	e_unary_address_of,
 	e_unary_logical_not,
+	e_unary_cast,
 };
 
 struct s_node;
@@ -187,6 +188,7 @@ struct s_node
 		struct
 		{
 			e_unary type;
+			s_node* cast_type; // @Note(tkap, 04/08/2023): Only for e_unary_cast
 			s_node* expr;
 		} unary;
 

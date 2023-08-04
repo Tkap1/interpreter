@@ -29,3 +29,5 @@ func void node_to_str_(s_node* node, s_str_sbuilder<1024>* builder);
 func void add_var(s_node var);
 func char* expr_to_str(s_node* node);
 func char* type_to_str(s_node* node);
+func void type_check_statement(s_node* node, char* file, s_error_reporter* reporter, s_node* func_decl_or_struct);
+func b8 can_a_be_assigned_to_b(s_node* a, s_node* b);

@@ -9,8 +9,8 @@ struct s_color
 
 struct s_v2
 {
-	int x;
-	int y;
+	float x;
+	float y;
 }
 
 external_func int printf(char*, int) "msvcrt.dll";
@@ -87,7 +87,7 @@ func int main()
 
 		vel.x = 0;
 
-		DrawRectangle(pos.x, pos.y, player_size.x, player_size.y, red);
+		DrawRectangle(cast int pos.x, cast int pos.y, cast int player_size.x, cast int player_size.y, red);
 
 		EndDrawing();
 	}

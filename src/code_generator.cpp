@@ -156,6 +156,34 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 					generate_expr(unary->expr, base_register);
 					result.comparison = e_node_equals;
 				} break;
+
+				case e_unary_cast:
+				{
+					generate_expr(unary->expr, base_register);
+					assert(unary->expr->type_node);
+					switch(unary->cast_type->type_node->ntype.id)
+					{
+						case e_type_int:
+						{
+							switch(unary->expr->type_node->ntype.id)
+							{
+								case e_type_int:
+								{
+								} break;
+
+								case e_type_float:
+								{
+									add_expr({.type = e_expr_reg_float_to_int, .a = {.val_s64 = base_register}});
+								} break;
+
+								invalid_default_case;
+							}
+						} break;
+
+						invalid_default_case;
+					}
+				} break;
+
 				invalid_default_case;
 
 			}

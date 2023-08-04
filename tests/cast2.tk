@@ -1,0 +1,21 @@
+
+
+struct s_foo
+{
+	float x;
+	float y;
+}
+
+func int func_a(int x)
+{
+	return x;
+}
+
+
+func int main()
+{
+	s_foo foo;
+	foo.y = 456;
+	int result = func_a(cast int foo.y);
+	return result;
+}

@@ -18,3 +18,8 @@ make other structs work. only s_color works
 multipel return values
 
 we need casting
+
+does !!foo work?
+
+
+we probably want assert that things of type e_node_type don't have a type_node set, because that is just confusing

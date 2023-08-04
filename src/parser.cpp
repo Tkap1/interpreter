@@ -187,6 +187,7 @@ func s_parse_result parse_sub_expr(s_tokenizer tokenizer, s_error_reporter* repo
 		{.type = e_unary_dereference, .str = "*"},
 		{.type = e_unary_address_of, .str = "&"},
 		{.type = e_unary_logical_not, .str = "!"},
+		{.type = e_unary_cast, .str = "cast"},
 	};
 
 	for(int operator_i = 0; operator_i < array_count(operators); operator_i++)
@@ -195,6 +196,13 @@ func s_parse_result parse_sub_expr(s_tokenizer tokenizer, s_error_reporter* repo
 		if(consume_token(op.str, &tokenizer))
 		{
 			int operator_level = get_unary_operator_level(op.str);
+			if(op.type == e_unary_cast)
+			{
+				pr = parse_type(tokenizer, reporter);
+				assert(pr.success);
+				result.node.unary.cast_type = make_node(pr.node);
+				tokenizer = pr.tokenizer;
+			}
 			pr = parse_expr(tokenizer, operator_level, reporter, file);
 			if(!pr.success)
 			{
@@ -610,7 +618,8 @@ func int get_unary_operator_level(char* str)
 	if(
 		strcmp(str, "&") == 0 ||
 		strcmp(str, "*") == 0 ||
-		strcmp(str, "!") == 0
+		strcmp(str, "!") == 0 ||
+		strcmp(str, "cast") == 0
 	)
 	{
 		return 180;
@@ -789,7 +798,7 @@ void s_error_reporter::fatal(int line, char* file, char* str, ...)
 func b8 token_is_keyword(s_token token)
 {
 	constexpr char* keywords[] = {
-		"for", "return", "break", "continue", "func", "if", "else", "external_func",
+		"for", "return", "break", "continue", "func", "if", "else", "external_func", "cast"
 	};
 
 	for(int keyword_i = 0; keyword_i < array_count(keywords); keyword_i++)

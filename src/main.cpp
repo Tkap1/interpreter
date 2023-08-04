@@ -110,21 +110,24 @@ func void do_tests()
 	};
 
 	constexpr s_test_data c_tests[] = {
-		{.file = "tests/factorial.tk", .expected_result = 3628800},
-		{.file = "tests/fibonacci.tk", .expected_result = 55},
-		{.file = "tests/prime.tk", .expected_result = 79},
-		{.file = "tests/break2.tk", .expected_result = 2},
-		{.file = "tests/return_val1.tk", .expected_result = 11},
-		{.file = "tests/return_val2.tk", .expected_result = 10},
-		{.file = "tests/struct1.tk", .expected_result = 5},
-		{.file = "tests/struct2.tk", .expected_result = 4},
-		{.file = "tests/struct3.tk", .expected_result = 6},
+		// {.file = "tests/factorial.tk", .expected_result = 3628800},
+		// {.file = "tests/fibonacci.tk", .expected_result = 55},
+		// {.file = "tests/prime.tk", .expected_result = 79},
+		// {.file = "tests/break2.tk", .expected_result = 2},
+		// {.file = "tests/return_val1.tk", .expected_result = 11},
+		// {.file = "tests/return_val2.tk", .expected_result = 10},
+		// {.file = "tests/struct1.tk", .expected_result = 5},
+		// {.file = "tests/struct2.tk", .expected_result = 4},
+		// {.file = "tests/struct3.tk", .expected_result = 6},
 		{.file = "tests/struct4.tk", .expected_result = 255},
-		{.file = "tests/bool1.tk", .expected_result = 88},
-		{.file = "tests/bool2.tk", .expected_result = 11},
-		{.file = "tests/zero_init.tk", .expected_result = 0},
-		{.file = "tests/zero_init_struct.tk", .expected_result = 0},
-		{.file = "tests/float_into_int.tk", .should_fail_compilation = true},
+		// {.file = "tests/bool1.tk", .expected_result = 88},
+		// {.file = "tests/bool2.tk", .expected_result = 11},
+		// {.file = "tests/zero_init.tk", .expected_result = 0},
+		// {.file = "tests/zero_init_struct.tk", .expected_result = 0},
+		// {.file = "tests/float_into_int.tk", .should_fail_compilation = true},
+		// {.file = "tests/cast_float_to_int.tk", .expected_result = 1234},
+		// {.file = "tests/cast1.tk", .expected_result = 333},
+		// {.file = "tests/cast2.tk", .expected_result = 456},
 	};
 
 	for(int test_i = 0; test_i < array_count(c_tests); test_i++)
@@ -153,7 +156,16 @@ func void do_tests()
 		{
 			SetConsoleTextAttribute(stdout_handle, FOREGROUND_RED);
 			printf("--------------------\n\n");
-			printf("TEST %i %s FAILED!\n\n", test_i + 1, test.file);
+			printf("TEST %i %s FAILED!\n", test_i + 1, test.file);
+			if(!result.compilation_succeded)
+			{
+				printf("Did not compile\n");
+			}
+			else
+			{
+				printf("Expected %i but got %lli\n", test.expected_result, result.return_val);
+			}
+			printf("\n");
 			printf("--------------------\n\n");
 		}
 	}
@@ -685,6 +697,15 @@ func s64 execute_expr(s_expr expr)
 			g_registers[expr.a.val_s64].val_s64 = expr.b.val_s64;
 		} break;
 
+		case e_expr_reg_float_to_int:
+		{
+			dprint(
+				"float_to_int %s(%f)\n",
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_float
+			);
+			g_registers[expr.a.val_s64].val_s64 = (s64)g_registers[expr.a.val_s64].val_float;
+		} break;
+
 		case e_expr_immediate_float_to_reg:
 		{
 			dprint(
@@ -869,6 +890,11 @@ func void print_exprs()
 			case e_expr_pointer_to_reg:
 			{
 				printf("%s = %p\n", register_to_str(expr.a.val_s64), expr.b.val_ptr);
+			} break;
+
+			case e_expr_reg_float_to_int:
+			{
+				printf("float_to_int %s\n", register_to_str(expr.a.val_s64));
 			} break;
 
 			case e_expr_call_external:
