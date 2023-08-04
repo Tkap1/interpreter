@@ -27,3 +27,5 @@ func int get_type_id(s_type_instance type_instance);
 func char* type_instance_to_str(s_type_instance type_instance);
 func void node_to_str_(s_node* node, s_str_sbuilder<1024>* builder);
 func void add_var(s_node var);
+func char* expr_to_str(s_node* node);
+func char* type_to_str(s_node* node);

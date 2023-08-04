@@ -135,7 +135,7 @@ func s_node* node_to_type(s_node* node)
 	return null;
 }
 
-func void type_check_expr(s_node* node, char* file, s_node* func_decl)
+func void type_check_expr(s_node* node, char* file, s_error_reporter* reporter, s_node* func_decl)
 {
 	unreferenced(func_decl);
 
@@ -154,7 +154,7 @@ func void type_check_expr(s_node* node, char* file, s_node* func_decl)
 		{
 			for_node(n, node->func_call.args)
 			{
-				type_check_expr(n, file, null);
+				type_check_expr(n, file, reporter, null);
 			}
 			node->func_node = node_to_func(node->func_call.left);
 			assert(node->func_node);
@@ -163,6 +163,11 @@ func void type_check_expr(s_node* node, char* file, s_node* func_decl)
 		case e_node_integer:
 		{
 			node->type_node = get_type_by_name("int");
+		} break;
+
+		case e_node_float:
+		{
+			node->type_node = get_type_by_name("float");
 		} break;
 
 		case e_node_add:
@@ -174,8 +179,8 @@ func void type_check_expr(s_node* node, char* file, s_node* func_decl)
 		{
 			// @TODO(tkap, 31/07/2023): need to set type_node here?
 
-			type_check_expr(node->arithmetic.left, file, null);
-			type_check_expr(node->arithmetic.right, file, null);
+			type_check_expr(node->arithmetic.left, file, reporter, null);
+			type_check_expr(node->arithmetic.right, file, reporter, null);
 		} break;
 
 		case e_node_member_access:
@@ -198,13 +203,19 @@ func void type_check_expr(s_node* node, char* file, s_node* func_decl)
 			node->pointer_level = 1;
 		} break;
 
+		case e_node_greater_than:
+		{
+			type_check_expr(node->arithmetic.left, file, reporter, null);
+			type_check_expr(node->arithmetic.right, file, reporter, null);
+		} break;
+
 		case e_node_unary:
 		{
 			switch(node->unary.type)
 			{
 				case e_unary_logical_not:
 				{
-					type_check_expr(node->unary.expr, file, null);
+					type_check_expr(node->unary.expr, file, reporter, null);
 					// @TODO(tkap, 02/08/2023): check that this can be used as bool
 				} break;
 
@@ -217,7 +228,7 @@ func void type_check_expr(s_node* node, char* file, s_node* func_decl)
 	}
 }
 
-func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_struct)
+func void type_check_statement(s_node* node, char* file, s_error_reporter* reporter, s_node* func_decl_or_struct)
 {
 	switch(node->type)
 	{
@@ -225,14 +236,14 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_st
 		{
 			// @Note(tkap, 31/07/2023): We may want to set node->struct_membe.type.struct_node = func_decl_or_struct
 			// or something like that. We'll see
-			type_check_statement(node->struct_member.type, file, null);
+			type_check_statement(node->struct_member.type, file, reporter, null);
 			node->stack_offset = func_decl_or_struct->nstruct.bytes_used_by_members;
 			func_decl_or_struct->nstruct.bytes_used_by_members += node->struct_member.type->size;
 		} break;
 
 		case e_node_func_arg:
 		{
-			type_check_statement(node->func_arg.type, file, null);
+			type_check_statement(node->func_arg.type, file, reporter, null);
 			func_decl_or_struct->func_decl.bytes_used_by_args += node->func_arg.type->size;
 			node->stack_offset = -func_decl_or_struct->func_decl.bytes_used_by_args;
 			assert(node->func_arg.type->type_node);
@@ -252,32 +263,64 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_st
 
 		case e_node_var_decl:
 		{
-			type_check_statement(node->var_decl.ntype, file, null);
+			type_check_statement(node->var_decl.ntype, file, reporter, null);
 			assert(node->var_decl.ntype->type_node);
 			node->type_node = node->var_decl.ntype->type_node;
 
 			if(node->var_decl.val)
 			{
-				type_check_expr(node->var_decl.val, file, null);
+				type_check_expr(node->var_decl.val, file, reporter, null);
 			}
 			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args + func_decl_or_struct->func_decl.bytes_used_by_local_variables;
 			assert(node->var_decl.ntype->size > 0);
 			func_decl_or_struct->func_decl.bytes_used_by_local_variables += node->var_decl.ntype->size;
 
 			add_var(*node);
+
+			if(node->var_decl.val)
+			{
+				assert(node->var_decl.val->type_node);
+				s_node* type_left = node->type_node;
+				s_node* type_right = node->var_decl.val->type_node;
+				if(
+					type_left->ntype.id != type_right->ntype.id ||
+					node->pointer_level != node->var_decl.val->pointer_level
+				)
+				{
+					// @Note(tkap, 04/08/2023): Allow "float foo = 10;"
+					if(
+						type_left->ntype.id == e_type_float && type_right->ntype.id == e_type_int &&
+						node->var_decl.val->type == e_node_integer
+					)
+					{
+						node->var_decl.val->type_node = get_type_by_name("float");
+						node->var_decl.val->type = e_node_float;
+						node->var_decl.val->nfloat.val = (float)node->var_decl.val->integer.val;
+					}
+					else
+					{
+						reporter->error(
+							node->line, file, "Can't assign '%s' of type '%s' to '%s' of type '%s'",
+							expr_to_str(node->var_decl.val), type_to_str(node->var_decl.val->type_node),
+							node->var_decl.name.data, type_to_str(node->var_decl.ntype)
+						);
+					}
+				}
+			}
+
 		} break;
 
 		case e_node_compound:
 		{
 			for_node(n, node->compound.statements)
 			{
-				type_check_statement(n, file, func_decl_or_struct);
+				type_check_statement(n, file, reporter, func_decl_or_struct);
 			}
 		} break;
 
 		case e_node_for:
 		{
-			type_check_expr(node->nfor.expr, file, null);
+			type_check_expr(node->nfor.expr, file, reporter, null);
 			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args + func_decl_or_struct->func_decl.bytes_used_by_local_variables;
 			func_decl_or_struct->func_decl.bytes_used_by_local_variables += 8; // @Fixme(tkap, 31/07/2023): just size of int?? not sure
 
@@ -297,7 +340,7 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_st
 
 			type_check_push_scope();
 			add_var(new_node);
-			type_check_statement(node->nfor.body, file, func_decl_or_struct);
+			type_check_statement(node->nfor.body, file, reporter, func_decl_or_struct);
 			type_check_pop_scope();
 		} break;
 
@@ -306,15 +349,15 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_st
 		case e_node_times_equals:
 		case e_node_assign:
 		{
-			type_check_expr(node->arithmetic.left, file, null);
-			type_check_expr(node->arithmetic.right, file, null);
+			type_check_expr(node->arithmetic.left, file, reporter, null);
+			type_check_expr(node->arithmetic.right, file, reporter, null);
 		} break;
 
 		case e_node_return:
 		{
 			if(node->nreturn.expr)
 			{
-				type_check_expr(node->nreturn.expr, file, null);
+				type_check_expr(node->nreturn.expr, file, reporter, null);
 			}
 		} break;
 
@@ -328,11 +371,11 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_st
 		{
 			type_check_push_scope();
 
-			type_check_expr(node->nif.expr, file, null);
+			type_check_expr(node->nif.expr, file, reporter, null);
 
 			for_node(arg, node->nif.body)
 			{
-				type_check_statement(arg, file, func_decl_or_struct);
+				type_check_statement(arg, file, reporter, func_decl_or_struct);
 			}
 
 			type_check_pop_scope();
@@ -340,13 +383,13 @@ func void type_check_statement(s_node* node, char* file, s_node* func_decl_or_st
 
 		default:
 		{
-			type_check_expr(node, file, null);
+			type_check_expr(node, file, reporter, null);
 		} break;
 
 	}
 }
 
-func void type_check(s_node* ast, char* file)
+func b8 type_check(s_node* ast, char* file, b8 print_errors)
 {
 
 	s_error_reporter reporter = zero;
@@ -408,6 +451,14 @@ func void type_check(s_node* ast, char* file)
 		g_type_check_data.types.add(type);
 	}
 
+	{
+		s_node type = zero;
+		type.type = e_node_type;
+		type.ntype.name.from_cstr("float");
+		type.ntype.size_in_bytes = 8;
+		type.ntype.id = g_type_check_data.next_type_id++;
+		g_type_check_data.types.add(type);
+	}
 
 	for_node(node, ast)
 	{
@@ -420,19 +471,30 @@ func void type_check(s_node* ast, char* file)
 
 				type_check_push_scope();
 				auto func_decl = &node->func_decl;
-				type_check_statement(func_decl->return_type, file, null);
+				type_check_statement(func_decl->return_type, file, &reporter, null);
 				for_node(arg, func_decl->args)
 				{
-					type_check_statement(arg, file, node);
+					type_check_statement(arg, file, &reporter, node);
 				}
 
 				if(!func_decl->external)
 				{
-					type_check_statement(func_decl->body, file, node);
+					type_check_statement(func_decl->body, file, &reporter, node);
 				}
 				type_check_pop_scope();
 
 				g_type_check_data.funcs.add(*node);
+
+				if(reporter.has_error)
+				{
+					if(print_errors)
+					{
+						SetConsoleTextAttribute(stdout_handle, FOREGROUND_RED);
+						printf("%s\n", reporter.error_str);
+						SetConsoleTextAttribute(stdout_handle, FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
+					}
+					return false;
+				}
 
 			} break;
 
@@ -474,7 +536,7 @@ func void type_check(s_node* ast, char* file)
 
 				for_node(member, nstruct->members)
 				{
-					type_check_statement(member, file, node);
+					type_check_statement(member, file, &reporter, node);
 				}
 
 				// @TODO(tkap, 27/07/2023): check if any structs, functions, types, or globals have the same name
@@ -489,6 +551,8 @@ func void type_check(s_node* ast, char* file)
 			invalid_default_case;
 		}
 	}
+
+	return true;
 }
 
 func void type_check_push_scope()
@@ -508,4 +572,37 @@ func void add_var(s_node var)
 	int* var_count = &g_type_check_data.var_count[g_type_check_data.curr_scope];
 	g_type_check_data.vars[g_type_check_data.curr_scope][*var_count] = var;
 	*var_count += 1;
+}
+
+func char* expr_to_str(s_node* node)
+{
+	switch(node->type)
+	{
+		case e_node_integer:
+		{
+			return format_text("%lli", node->integer.val);
+		} break;
+
+		case e_node_float:
+		{
+			return format_text("%f", node->nfloat.val);
+		} break;
+
+		invalid_default_case;
+	}
+	return null;
+}
+
+func char* type_to_str(s_node* node)
+{
+	switch(node->type)
+	{
+		case e_node_type:
+		{
+			return node->ntype.name.data;
+		} break;
+
+		invalid_default_case;
+	}
+	return null;
 }

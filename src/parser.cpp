@@ -218,6 +218,11 @@ func s_parse_result parse_sub_expr(s_tokenizer tokenizer, s_error_reporter* repo
 		result.node.type = e_node_integer;
 		result.node.integer.val = token_to_int(token);
 	}
+	else if(consume_token(e_token_real_number, &tokenizer, &token))
+	{
+		result.node.type = e_node_float;
+		result.node.nfloat.val = token_to_float(token);
+	}
 	else if(consume_token(e_token_string, &tokenizer, &token))
 	{
 		result.node.type = e_node_str;
@@ -742,7 +747,7 @@ void s_error_reporter::warning(int line, char* file, char* str, ...)
 
 	va_list args;
 	va_start(args, str);
-	vsnprintf(error_str, 255, str, args);
+	vsnprintf(error_str, sizeof(error_str), str, args);
 	va_end(args);
 }
 
@@ -754,9 +759,18 @@ void s_error_reporter::error(int line, char* file, char* str, ...)
 	if(has_error) { return; }
 	has_error = true;
 
+	char* target = error_str;
+	*target = 0;
+	int capacity = (int)sizeof(error_str);
+	sprintf_s(target, capacity, "ERROR: %s (%i): ", file, line);
+	int len = strleni(target);
+	target[len] = 0;
+	capacity -= len;
+	target += len;
+
 	va_list args;
 	va_start(args, str);
-	vsnprintf(error_str, 255, str, args);
+	vsnprintf(target, capacity, str, args);
 	va_end(args);
 }
 
@@ -764,7 +778,7 @@ void s_error_reporter::fatal(int line, char* file, char* str, ...)
 {
 	va_list args;
 	va_start(args, str);
-	vsnprintf(error_str, 255, str, args);
+	vsnprintf(error_str, sizeof(error_str), str, args);
 	va_end(args);
 	printf("%s (%i): ", file, line);
 	printf("%s\n", error_str);

@@ -1,0 +1,26 @@
+
+
+struct s_foo
+{
+	int a;
+	int b;
+}
+
+func void func_a()
+{
+	int a = 1;
+	int b = 2;
+	int c = 3;
+	int d = 4;
+}
+
+
+func int main()
+{
+	func_a();
+	int result = 0;
+	s_foo foo;
+	result += foo.a;
+	result += foo.b;
+	return result;
+}

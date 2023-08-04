@@ -12,12 +12,12 @@ enum e_type
 	e_type_char,
 	e_type_bool,
 	e_type_u8,
+	e_type_float,
 };
 
 struct s_type
 {
 	int pointer_level;
-	// e_type type;
 	s_node* type;
 };
 
@@ -68,17 +68,14 @@ enum e_flag
 	e_flag_lesser,
 };
 
-
 enum e_expr
 {
 	e_expr_invalid,
 	e_expr_var_decl,
-	e_expr_print_immediate,
-	e_expr_print_var,
-	e_expr_print_reg,
 	e_expr_jump,
 	e_expr_immediate_to_var,
 	e_expr_immediate_to_reg,
+	e_expr_immediate_float_to_reg,
 	e_expr_var_to_reg,
 	e_expr_reg_to_var,
 	e_expr_reg_to_var_from_reg,
@@ -89,43 +86,39 @@ enum e_expr
 	e_expr_jump_greater,
 	e_expr_jump_lesser,
 	e_expr_jump_greater_or_equal,
+	e_expr_jump_less_or_equal,
 	e_expr_jump_not_equal,
 	e_expr_jump_equal,
 	e_expr_reg_inc,
 	e_expr_reg_dec,
-	e_expr_imul2_reg_reg,
-	e_expr_imul2_reg_var,
-	e_expr_imul3,
+	e_expr_multiply_reg_reg,
+	e_expr_multiply_reg_var,
 	e_expr_add_reg_to_var,
 	e_expr_sub_reg_from_var,
 	e_expr_reg_mod_reg,
 	e_expr_divide_reg_reg,
 	e_expr_add_reg_reg,
+	e_expr_sub_reg_reg,
 	e_expr_return,
 	e_expr_call,
 	e_expr_call_external,
 	e_expr_push_reg,
 	e_expr_pop_reg,
 	e_expr_pop_var,
-	e_expr_lea_reg_var,
 	e_expr_pointer_to_reg,
 	e_expr_add_stack_pointer,
 	e_expr_set_stack_base,
 	e_expr_reg_to_address,
 };
 
-enum e_operand
-{
-	e_operand_var,
-	e_operand_register,
-	e_operand_immediate,
-};
 
-union s_foo
+union s_val
 {
-	s64 val;
+	float val_float;
+	s64 val_s64;
 	void* val_ptr;
 };
+
 
 struct s_gen_data
 {
@@ -137,9 +130,9 @@ struct s_gen_data
 struct s_expr
 {
 	e_expr type;
-	s_foo a;
-	s_foo b;
-	s_foo c;
+	s_val a;
+	s_val b;
+	s_val c;
 };
 
 

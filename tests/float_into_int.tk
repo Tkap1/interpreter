@@ -1,0 +1,6 @@
+
+
+func int main()
+{
+	int foo = 7.2;
+}

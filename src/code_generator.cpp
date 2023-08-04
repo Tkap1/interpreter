@@ -7,7 +7,7 @@ func void generate_expr_address(s_node* node, int base_register)
 		case e_node_member_access:
 		case e_node_identifier:
 		{
-			add_expr({.type = e_expr_immediate_to_reg, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
+			add_expr({.type = e_expr_immediate_to_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
 		} break;
 
 		invalid_default_case;
@@ -24,82 +24,76 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 	{
 		case e_node_func_call:
 		{
-			// @Fixme(tkap, 25/07/2023):
-			// if(node->var_data.func_node->func_decl.name.equals("print"))
-			if(node->func_call.left->identifier.name.equals("print"))
-			// if(1)
+			int i = 0;
+			for_node(expr, node->func_call.args)
 			{
-				if(node->func_call.args->type == e_node_integer)
+				s_gen_data temp_data = generate_expr(expr, base_register + i);
+				result.members = temp_data.members;
+				for(int j = 0; j < temp_data.members; j++)
 				{
-					add_expr({.type = e_expr_print_immediate, .a = {.val = node->func_call.args->integer.val}});
+					add_expr({.type = e_expr_push_reg, .a = {.val_s64 = base_register + i + j}});
 				}
-				else if(node->func_call.args->type == e_node_identifier)
-				{
-					// @Note(tkap, 28/07/2023): Only 1 argument works here, but we don't really want this whole print special case anyway
-					int i = 0;
-					for_node(expr, node->func_call.args)
-					{
-						generate_expr(expr, base_register + i);
-						i += 1;
-					}
-					add_expr({.type = e_expr_print_reg, .a = {.val = base_register}});
-				}
-				invalid_else;
+				i += temp_data.members;
+			}
+			if(node->func_node->func_decl.external)
+			{
+				add_expr({.type = e_expr_call_external, .a = {.val_s64 = node->func_node->func_decl.id}, .b = {.val_s64 = base_register}});
 			}
 			else
 			{
-				int i = 0;
-				for_node(expr, node->func_call.args)
-				{
-					s_gen_data temp_data = generate_expr(expr, base_register + i);
-					result.members = temp_data.members;
-					for(int j = 0; j < temp_data.members; j++)
-					{
-						add_expr({.type = e_expr_push_reg, .a = {.val = base_register + i + j}});
-					}
-					i += temp_data.members;
-				}
-				if(node->func_node->func_decl.external)
-				{
-					add_expr({.type = e_expr_call_external, .a = {.val = node->func_node->func_decl.id}, .b = {.val = base_register}});
-				}
-				else
-				{
-					add_expr({.type = e_expr_call, .a = {.val = node->func_node->func_decl.id}});
-				}
+				add_expr({.type = e_expr_call, .a = {.val_s64 = node->func_node->func_decl.id}});
 			}
 		} break;
 
 		case e_node_str:
 		{
 			int index = g_code_gen_data.str_literals.add(node->str.val);
-			add_expr({.type = e_expr_pointer_to_reg, .a = {.val = base_register}, .b = {.val_ptr = g_code_gen_data.str_literals[index].data}});
+			add_expr({.type = e_expr_pointer_to_reg, .a = {.val_s64 = base_register}, .b = {.val_ptr = g_code_gen_data.str_literals[index].data}});
 		} break;
 
 		case e_node_add:
 		{
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_add_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
+			add_expr({.type = e_expr_add_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+		} break;
+
+		case e_node_subtract:
+		{
+			generate_expr(node->arithmetic.left, base_register);
+			generate_expr(node->arithmetic.right, base_register + 1);
+			add_expr({.type = e_expr_sub_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+		} break;
+
+		case e_node_multiply:
+		{
+			generate_expr(node->arithmetic.left, base_register);
+			generate_expr(node->arithmetic.right, base_register + 1);
+			add_expr({.type = e_expr_multiply_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
 		} break;
 
 		case e_node_divide:
 		{
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_divide_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
+			add_expr({.type = e_expr_divide_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
 		} break;
 
 		case e_node_mod:
 		{
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_reg_mod_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
+			add_expr({.type = e_expr_reg_mod_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
 		} break;
 
 		case e_node_integer:
 		{
-			add_expr({.type = e_expr_immediate_to_reg, .a = {.val = base_register}, .b = {.val = node->integer.val}});
+			add_expr({.type = e_expr_immediate_to_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->integer.val}});
+		} break;
+
+		case e_node_float:
+		{
+			add_expr({.type = e_expr_immediate_float_to_reg, .a = {.val_s64 = base_register}, .b = {.val_float = node->nfloat.val}});
 		} break;
 
 		case e_node_identifier:
@@ -110,13 +104,13 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 				int i = 0;
 				for_node(member, node->type_node->nstruct.members)
 				{
-					add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register + i}, .b = {.val = node->stack_offset + member->stack_offset}});
+					add_expr({.type = e_expr_var_to_reg, .a = {.val_s64 = base_register + i}, .b = {.val_s64 = node->stack_offset + member->stack_offset}});
 					i += 1;
 				}
 			}
 			else
 			{
-				add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
+				add_expr({.type = e_expr_var_to_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
 			}
 		} break;
 
@@ -126,7 +120,16 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 			result.need_compare = false;
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_cmp_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
+			add_expr({.type = e_expr_cmp_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+		} break;
+
+		case e_node_greater_than:
+		{
+			result.comparison = e_node_greater_than;
+			result.need_compare = false;
+			generate_expr(node->arithmetic.left, base_register);
+			generate_expr(node->arithmetic.right, base_register + 1);
+			add_expr({.type = e_expr_cmp_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
 		} break;
 
 		case e_node_unary:
@@ -138,14 +141,14 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 				{
 					assert(false);
 					// s64 var_id = get_var_id(unary->expr);
-					// add_expr({.type = e_expr_var_to_reg_dereference, .a = {.val = base_register}, .b = {.val = var_id}});
+					// add_expr({.type = e_expr_var_to_reg_dereference, .a = {.val_s64 = base_register}, .b = {.val_s64 = var_id}});
 				} break;
 
 				case e_unary_address_of:
 				{
 					assert(false);
 					// s64 var_id = get_var_id(unary->expr);
-					// add_expr({.type = e_expr_lea_reg_var, .a = {.val = base_register}, .b = {.val = var_id}});
+					// add_expr({.type = e_expr_lea_reg_var, .a = {.val_s64 = base_register}, .b = {.val_s64 = var_id}});
 				} break;
 
 				case e_unary_logical_not:
@@ -160,7 +163,7 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 
 		case e_node_member_access:
 		{
-			add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
+			add_expr({.type = e_expr_var_to_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
 		} break;
 
 		invalid_default_case;
@@ -175,14 +178,25 @@ func void generate_statement(s_node* node, int base_register)
 	{
 		case e_node_var_decl:
 		{
-			// s_var var = zero;
-			// var.id = g_id++;
-			// g_vars.add(var);
-
 			if(node->var_decl.val)
 			{
 				generate_expr(node->var_decl.val, base_register);
-				add_expr({.type = e_expr_reg_to_var, .a = {.val = node->stack_offset}, .b = {.val = base_register}});
+				add_expr({.type = e_expr_reg_to_var, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register}});
+			}
+			else
+			{
+				// @TODO(tkap, 04/08/2023): Take into account structs!
+				if(node->type_node->type == e_node_struct)
+				{
+					for_node(member, node->type_node->nstruct.members)
+					{
+						add_expr({.type = e_expr_immediate_to_var, .a = {.val_s64 = node->stack_offset + member->stack_offset}, .b = {.val_s64 = 0}});
+					}
+				}
+				else
+				{
+					add_expr({.type = e_expr_immediate_to_var, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = 0}});
+				}
 			}
 		} break;
 
@@ -203,29 +217,29 @@ func void generate_statement(s_node* node, int base_register)
 			if(nfor.reverse)
 			{
 				generate_expr(expr, base_register + 1);
-				add_expr({.type = e_expr_reg_dec, .a = {.val = base_register + 1}});
-				add_expr({.type = e_expr_reg_to_var, .a = {.val = node->stack_offset}, .b = {.val = base_register + 1}});
+				add_expr({.type = e_expr_reg_dec, .a = {.val_s64 = base_register + 1}});
+				add_expr({.type = e_expr_reg_to_var, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register + 1}});
 
 				comparison_index = add_expr(
-					{.type = e_expr_cmp_var_immediate, .a = {.val = node->stack_offset}, .b = {.val = 0}}
+					{.type = e_expr_cmp_var_immediate, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = 0}}
 				);
 
 				// @Note(tkap, 24/07/2023): Go to end of loop. We don't yet know to which instruction we have to jump, hence the -1
-				jump_index = add_expr({.type = e_expr_jump_lesser, .a = {.val = -1}});
+				jump_index = add_expr({.type = e_expr_jump_lesser, .a = {.val_s64 = -1}});
 			}
 			else
 			{
-				add_expr({.type = e_expr_immediate_to_var, .a = {.val = node->stack_offset}, .b = {.val = 0}});
+				add_expr({.type = e_expr_immediate_to_var, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = 0}});
 
 				// @TODO(tkap, 24/07/2023): If we can know the value of the comparand at compile time, then we just place it there.
 				// Otherwise, we need to reference a variable
 				generate_expr(expr, base_register + 1);
 				comparison_index = add_expr(
-					{.type = e_expr_cmp_var_reg, .a = {.val = node->stack_offset}, .b = {.val = base_register + 1}}
+					{.type = e_expr_cmp_var_reg, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register + 1}}
 				);
 
 				// @Note(tkap, 24/07/2023): Go to end of loop. We don't yet know to which instruction we have to jump, hence the -1
-				jump_index = add_expr({.type = e_expr_jump_greater_or_equal, .a = {.val = -1}});
+				jump_index = add_expr({.type = e_expr_jump_greater_or_equal, .a = {.val_s64 = -1}});
 			}
 
 			// @Note(tkap, 24/07/2023): Do the for body
@@ -233,39 +247,39 @@ func void generate_statement(s_node* node, int base_register)
 
 
 			// @Note(tkap, 24/07/2023): Increment loop variable, go back to compare
-			int inc_loop_index = add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register}, .b = {.val = node->stack_offset}});
+			int inc_loop_index = add_expr({.type = e_expr_var_to_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
 			if(nfor.reverse)
 			{
-				add_expr({.type = e_expr_reg_dec, .a = {.val = base_register}});
+				add_expr({.type = e_expr_reg_dec, .a = {.val_s64 = base_register}});
 			}
 			else
 			{
-				add_expr({.type = e_expr_reg_inc, .a = {.val = base_register}});
+				add_expr({.type = e_expr_reg_inc, .a = {.val_s64 = base_register}});
 			}
 
-			add_expr({.type = e_expr_reg_to_var, .a = {.val = node->stack_offset}, .b = {.val = base_register}});
-			int temp_index = add_expr({.type = e_expr_jump, .a = {.val = comparison_index}});
+			add_expr({.type = e_expr_reg_to_var, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register}});
+			int temp_index = add_expr({.type = e_expr_jump, .a = {.val_s64 = comparison_index}});
 
 			foreach(break_index_i, break_index, g_code_gen_data.break_indices)
 			{
-				assert(g_exprs[break_index->index].a.val == -1);
+				assert(g_exprs[break_index->index].a.val_s64 == -1);
 				break_index->val -= 1;
 				if(break_index->val <= 0)
 				{
-					g_exprs[break_index->index].a.val = temp_index + 1;
+					g_exprs[break_index->index].a.val_s64 = temp_index + 1;
 					g_code_gen_data.break_indices.remove_and_swap(break_index_i--);
 				}
 			}
 
 			foreach_raw(continue_index_i, continue_index, g_code_gen_data.continue_indices)
 			{
-				assert(g_exprs[continue_index].a.val == -1);
-				g_exprs[continue_index].a.val = inc_loop_index;
+				assert(g_exprs[continue_index].a.val_s64 == -1);
+				g_exprs[continue_index].a.val_s64 = inc_loop_index;
 			}
 			g_code_gen_data.continue_indices.count = 0;
 
 			// @Note(tkap, 24/07/2023): Now we modify the jump instruction that is supposed to take us to the end of the for body
-			g_exprs[jump_index].a.val = temp_index + 1;
+			g_exprs[jump_index].a.val_s64 = temp_index + 1;
 
 		} break;
 
@@ -275,27 +289,32 @@ func void generate_statement(s_node* node, int base_register)
 			int jump_index = 0;
 			if(gen_data.need_compare)
 			{
-				add_expr({.type = e_expr_cmp_reg_immediate, .a = {.val = base_register}, .b = {.val = 0}});
+				add_expr({.type = e_expr_cmp_reg_immediate, .a = {.val_s64 = base_register}, .b = {.val_s64 = 0}});
 			}
 			switch(gen_data.comparison)
 			{
 				case e_node_equals:
 				{
-					jump_index = add_expr({.type = e_expr_jump_not_equal, .a = {.val = -1}});
+					jump_index = add_expr({.type = e_expr_jump_not_equal, .a = {.val_s64 = -1}});
 				} break;
 
 				case e_node_not_equals:
 				{
-					jump_index = add_expr({.type = e_expr_jump_equal, .a = {.val = -1}});
+					jump_index = add_expr({.type = e_expr_jump_equal, .a = {.val_s64 = -1}});
+				} break;
+
+				case e_node_greater_than:
+				{
+					jump_index = add_expr({.type = e_expr_jump_less_or_equal, .a = {.val_s64 = -1}});
 				} break;
 
 				default:
 				{
-					jump_index = add_expr({.type = e_expr_jump_equal, .a = {.val = -1}});
+					jump_index = add_expr({.type = e_expr_jump_equal, .a = {.val_s64 = -1}});
 				} break;
 			}
 			generate_statement(node->nif.body, base_register);
-			g_exprs[jump_index].a.val = g_exprs.count;
+			g_exprs[jump_index].a.val_s64 = g_exprs.count;
 		} break;
 
 		case e_node_compound:
@@ -321,32 +340,32 @@ func void generate_statement(s_node* node, int base_register)
 		{
 			generate_expr_address(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_reg_to_var_from_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
+			add_expr({.type = e_expr_reg_to_var_from_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
 		} break;
 
 		case e_node_plus_equals:
 		{
 			generate_expr(node->arithmetic.right, base_register);
-			add_expr({.type = e_expr_add_reg_to_var, .a = {.val = node->arithmetic.left->stack_offset}, .b = {.val = base_register}});
+			add_expr({.type = e_expr_add_reg_to_var, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
 		} break;
 
 		case e_node_minus_equals:
 		{
 			generate_expr(node->arithmetic.right, base_register);
-			add_expr({.type = e_expr_sub_reg_from_var, .a = {.val = node->arithmetic.left->stack_offset}, .b = {.val = base_register}});
+			add_expr({.type = e_expr_sub_reg_from_var, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
 		} break;
 
 		case e_node_times_equals:
 		{
-			add_expr({.type = e_expr_var_to_reg, .a = {.val = base_register}, .b = {.val = node->arithmetic.left->stack_offset}});
+			add_expr({.type = e_expr_var_to_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->arithmetic.left->stack_offset}});
 			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_imul2_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
-			add_expr({.type = e_expr_reg_to_var, .a = {.val = node->arithmetic.left->stack_offset}, .b = {.val = base_register}});
+			add_expr({.type = e_expr_multiply_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+			add_expr({.type = e_expr_reg_to_var, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
 		} break;
 
 		case e_node_break:
 		{
-			int index = add_expr({.type = e_expr_jump, .a = {.val = -1}});
+			int index = add_expr({.type = e_expr_jump, .a = {.val_s64 = -1}});
 			s_break_index break_index = zero;
 			break_index.val = node->nbreak.val;
 			break_index.index = index;
@@ -355,7 +374,7 @@ func void generate_statement(s_node* node, int base_register)
 
 		case e_node_continue:
 		{
-			int index = add_expr({.type = e_expr_jump, .a = {.val = -1}});
+			int index = add_expr({.type = e_expr_jump, .a = {.val_s64 = -1}});
 			g_code_gen_data.continue_indices.add(index);
 		} break;
 
@@ -371,7 +390,7 @@ func void generate_code(s_node* ast)
 	assert(ast);
 
 	// @Note(tkap, 25/07/2023): Call main. We still need to figure out where the first instruction of main is
-	add_expr({.type = e_expr_call, .a = {.val = -1}});
+	add_expr({.type = e_expr_call, .a = {.val_s64 = -1}});
 	add_expr({.type = e_expr_return});
 
 	for_node(node, ast)
@@ -438,10 +457,10 @@ func void generate_code(s_node* ast)
 				{
 					g_func_first_expr_index[func_decl->id] = g_exprs.count;
 					add_expr({.type = e_expr_set_stack_base});
-					add_expr({.type = e_expr_add_stack_pointer, .a = {.val = func_decl->bytes_used_by_local_variables}});
+					add_expr({.type = e_expr_add_stack_pointer, .a = {.val_s64 = func_decl->bytes_used_by_local_variables}});
 					if(func_decl->name.equals("main"))
 					{
-						g_exprs[0].a.val = func_decl->id;
+						g_exprs[0].a.val_s64 = func_decl->id;
 					}
 
 

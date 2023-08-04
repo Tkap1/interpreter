@@ -58,7 +58,10 @@ int main(int argc, char** argv)
 		if(tokenizer.at)
 		{
 			s_node* ast = parse(tokenizer, "input.tk");
-			type_check(ast, "input.tk");
+			if(!type_check(ast, "input.tk", true))
+			{
+				exit(1);
+			}
 			generate_code(ast);
 		}
 
@@ -102,15 +105,16 @@ func void do_tests()
 	struct s_test_data
 	{
 		char* file;
+		b8 should_fail_compilation;
 		int expected_result;
 	};
 
 	constexpr s_test_data c_tests[] = {
-		{.file = "tests/return_val1.tk", .expected_result = 11},
 		{.file = "tests/factorial.tk", .expected_result = 3628800},
 		{.file = "tests/fibonacci.tk", .expected_result = 55},
 		{.file = "tests/prime.tk", .expected_result = 79},
 		{.file = "tests/break2.tk", .expected_result = 2},
+		{.file = "tests/return_val1.tk", .expected_result = 11},
 		{.file = "tests/return_val2.tk", .expected_result = 10},
 		{.file = "tests/struct1.tk", .expected_result = 5},
 		{.file = "tests/struct2.tk", .expected_result = 4},
@@ -118,6 +122,9 @@ func void do_tests()
 		{.file = "tests/struct4.tk", .expected_result = 255},
 		{.file = "tests/bool1.tk", .expected_result = 88},
 		{.file = "tests/bool2.tk", .expected_result = 11},
+		{.file = "tests/zero_init.tk", .expected_result = 0},
+		{.file = "tests/zero_init_struct.tk", .expected_result = 0},
+		{.file = "tests/float_into_int.tk", .should_fail_compilation = true},
 	};
 
 	for(int test_i = 0; test_i < array_count(c_tests); test_i++)
@@ -125,7 +132,7 @@ func void do_tests()
 		SetConsoleTextAttribute(stdout_handle, FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
 
 		s_test_data test = c_tests[test_i];
-		s64 result = parse_file_and_execute(test.file);
+		s_parse_file_and_execute_result result = parse_file_and_execute(test.file, false);
 
 		#ifdef m_verbose
 		printf("------\n");
@@ -133,7 +140,11 @@ func void do_tests()
 		printf("@@@@@@\n");
 		#endif
 
-		if(result == test.expected_result)
+		b8 pass = true;
+		if(test.should_fail_compilation && result.compilation_succeded) { pass = false; }
+		else if(!test.should_fail_compilation && test.expected_result != result.return_val) { pass = false; }
+
+		if(pass)
 		{
 			SetConsoleTextAttribute(stdout_handle, FOREGROUND_GREEN);
 			printf("TEST %i %s PASSED!\n", test_i + 1, test.file);
@@ -149,18 +160,20 @@ func void do_tests()
 	SetConsoleTextAttribute(stdout_handle, FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN);
 }
 
-func s64 parse_file_and_execute(char* file)
+func s_parse_file_and_execute_result parse_file_and_execute(char* file, b8 print_errors)
 {
+	s_parse_file_and_execute_result result = zero;
+
 	reset_globals();
 
 	s_tokenizer tokenizer = zero;
 	my_strcpy(tokenizer.comment_str, sizeof(tokenizer.comment_str), "//");
 	tokenizer.at = read_file_quick(file, &g_arena);
-	if(!tokenizer.at) { return -1; }
+	if(!tokenizer.at) { return result; }
 
 	s_node* ast = parse(tokenizer, file);
-	if(!ast) { return -1; }
-	type_check(ast, file);
+	if(!ast) { return result; }
+	if(!type_check(ast, file, print_errors)) { return result; }
 	generate_code(ast);
 
 	while(g_instruction_pointer < g_exprs.count)
@@ -168,7 +181,10 @@ func s64 parse_file_and_execute(char* file)
 		g_instruction_pointer = execute_expr(g_exprs[g_instruction_pointer]);
 		if(g_instruction_pointer == c_return_value) { break; }
 	}
-	return g_registers[e_register_eax].val_s64;
+
+	result.compilation_succeded = true;
+	result.return_val = g_registers[e_register_eax].val_s64;
+	return result;
 }
 
 
@@ -178,45 +194,38 @@ func s64 execute_expr(s_expr expr)
 	switch(expr.type)
 	{
 
-		case e_expr_lea_reg_var:
-		{
-			dprint("lea %s var%lli\n", register_to_str(expr.a.val), expr.b.val);
-			s_var* var = get_var(expr.b.val);
-			g_registers[expr.a.val].val_ptr = var;
-		} break;
-
 		case e_expr_reg_to_address:
 		{
-			s64* val = (s64*)&g_code_exec_data.stack[g_registers[expr.a.val].val_s64];
+			s64* val = (s64*)&g_code_exec_data.stack[g_registers[expr.a.val_s64].val_s64];
 
 			dprint(
 				"deref [stack_base + %lli](%lli) = %s(%lli)\n",
-				g_registers[expr.a.val].val_s64, *val,
-				register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				g_registers[expr.a.val_s64].val_s64, *val,
+				register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
 			);
 
-			*val = g_registers[expr.b.val].val_s64;
+			*val = g_registers[expr.b.val_s64].val_s64;
 		} break;
 
 		case e_expr_pointer_to_reg:
 		{
-			// dprint("lea %s var%lli\n", register_to_str(expr.a.val), expr.b.val);
-			dprint("%s = %p\n", register_to_str(expr.a.val), expr.b.val_ptr);
-			g_registers[expr.a.val].val_ptr = expr.b.val_ptr;
+			// dprint("lea %s var%lli\n", register_to_str(expr.a.val_s64), expr.b.val_s64);
+			dprint("%s = %p\n", register_to_str(expr.a.val_s64), expr.b.val_ptr);
+			g_registers[expr.a.val_s64].val_ptr = expr.b.val_ptr;
 		} break;
 
 		case e_expr_call:
 		{
 			g_call_stack.add(result);
-			dprint("call %lli\n", expr.a.val);
-			result = g_func_first_expr_index[expr.a.val];
+			dprint("call %lli\n", expr.a.val_s64);
+			result = g_func_first_expr_index[expr.a.val_s64];
 		} break;
 
 		case e_expr_call_external:
 		{
-			s_func f = get_func_by_id(expr.a.val);
+			s_func f = get_func_by_id(expr.a.val_s64);
 
-			dprint("call external %lli\n", expr.a.val);
+			dprint("call external %lli\n", expr.a.val_s64);
 
 			dcReset(g_vm);
 
@@ -350,13 +359,13 @@ func s64 execute_expr(s_expr expr)
 				case e_type_int:
 				{
 					s64 func_result = dcCallInt(g_vm, (DCpointer)f.ptr);
-					g_registers[expr.b.val].val_s64 = func_result;
+					g_registers[expr.b.val_s64].val_s64 = func_result;
 				} break;
 
 				case e_type_bool:
 				{
 					s64 func_result = dcCallBool(g_vm, (DCpointer)f.ptr);
-					g_registers[expr.b.val].val_s64 = func_result;
+					g_registers[expr.b.val_s64].val_s64 = func_result;
 				} break;
 
 				invalid_default_case;
@@ -368,20 +377,20 @@ func s64 execute_expr(s_expr expr)
 		case e_expr_push_reg:
 		{
 			void* val = &g_code_exec_data.stack[g_code_exec_data.stack_pointer];
-			dprint("push %s(%lli)\n", register_to_str(expr.a.val), g_registers[expr.a.val].val_s64);
+			dprint("push %s(%lli)\n", register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64);
 			g_code_exec_data.stack_pointer += 8;
-			memcpy(val, &g_registers[expr.a.val], 8);
+			memcpy(val, &g_registers[expr.a.val_s64], 8);
 		} break;
 
 		// case e_expr_pop_reg:
 		// {
-		// 	dprint("pop %s(%lli)\n", register_to_str(expr.a.val), g_registers[expr.a.val].val_s64);
-		// 	g_registers[expr.a.val].val_s64 = g_code_exec_data.stack.pop().val_s64;
+		// 	dprint("pop %s(%lli)\n", register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64);
+		// 	g_registers[expr.a.val_s64].val_s64 = g_code_exec_data.stack.pop().val_s64;
 		// } break;
 
 		// case e_expr_pop_var:
 		// {
-		// 	s_var* var = get_var(expr.a.val);
+		// 	s_var* var = get_var(expr.a.val_s64);
 		// 	dprint("pop var%lli(%lli)\n", var->id, var->val.val_s64);
 		// 	var->val = g_code_exec_data.stack.pop();
 		// } break;
@@ -401,43 +410,43 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_cmp_var_reg:
 		{
-			s64 val = *(s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val];
+			s64 val = *(s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val_s64];
 			dprint(
 				"cmp [stack_base + %lli](%lli), %s(%lli)\n",
-				expr.a.val, val, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				expr.a.val_s64, val, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
 			);
-			do_compare(val, g_registers[expr.b.val].val_s64);
+			do_compare(val, g_registers[expr.b.val_s64].val_s64);
 		} break;
 
 		case e_expr_cmp_var_immediate:
 		{
-			s64 val = *(s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val];
-			do_compare(val, expr.b.val);
+			s64 val = *(s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val_s64];
+			do_compare(val, expr.b.val_s64);
 		} break;
 
 		case e_expr_cmp_reg_reg:
 		{
 			dprint(
 				"cmp %s(%lli) %s(%lli)\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
 			);
-			do_compare(g_registers[expr.a.val].val_s64, g_registers[expr.b.val].val_s64);
+			do_compare(g_registers[expr.a.val_s64].val_s64, g_registers[expr.b.val_s64].val_s64);
 		} break;
 
 		case e_expr_cmp_reg_immediate:
 		{
 			dprint(
 				"cmp %s(%lli) %lli\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, expr.b.val
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64, expr.b.val_s64
 			);
-			do_compare(g_registers[expr.a.val].val_s64, expr.b.val);
+			do_compare(g_registers[expr.a.val_s64].val_s64, expr.b.val_s64);
 		} break;
 
 		case e_expr_jump_greater:
 		{
 			if(g_flag == e_flag_greater)
 			{
-				result = expr.a.val;
+				result = expr.a.val_s64;
 			}
 		} break;
 
@@ -445,16 +454,30 @@ func s64 execute_expr(s_expr expr)
 		{
 			if(g_flag == e_flag_lesser)
 			{
-				result = expr.a.val;
+				result = expr.a.val_s64;
 			}
 		} break;
 
 		case e_expr_jump_greater_or_equal:
 		{
-			dprint("jge %lli ", expr.a.val);
+			dprint("jge %lli ", expr.a.val_s64);
 			if(g_flag == e_flag_equal || g_flag == e_flag_greater)
 			{
-				result = expr.a.val;
+				result = expr.a.val_s64;
+				dprint("YES\n");
+			}
+			else
+			{
+				dprint("NO\n");
+			}
+		} break;
+
+		case e_expr_jump_less_or_equal:
+		{
+			dprint("jle %lli ", expr.a.val_s64);
+			if(g_flag == e_flag_equal || g_flag == e_flag_lesser)
+			{
+				result = expr.a.val_s64;
 				dprint("YES\n");
 			}
 			else
@@ -465,10 +488,10 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_jump_not_equal:
 		{
-			dprint("jne %lli (", expr.a.val);
+			dprint("jne %lli (", expr.a.val_s64);
 			if(g_flag != e_flag_equal)
 			{
-				result = expr.a.val;
+				result = expr.a.val_s64;
 				dprint("jumped)\n");
 			}
 			else
@@ -479,10 +502,10 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_jump_equal:
 		{
-			dprint("je %lli (", expr.a.val);
+			dprint("je %lli (", expr.a.val_s64);
 			if(g_flag == e_flag_equal)
 			{
-				result = expr.a.val;
+				result = expr.a.val_s64;
 				dprint("jumped)\n");
 			}
 			else
@@ -495,132 +518,137 @@ func s64 execute_expr(s_expr expr)
 		{
 			dprint(
 				"inc %s(%lli)\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64
 			);
-			g_registers[expr.a.val].val_s64 += 1;
+			g_registers[expr.a.val_s64].val_s64 += 1;
 		} break;
 
 		case e_expr_reg_dec:
 		{
 			dprint(
 				"dec %s(%lli)\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64
 			);
-			g_registers[expr.a.val].val_s64 -= 1;
+			g_registers[expr.a.val_s64].val_s64 -= 1;
 		} break;
 
 		case e_expr_immediate_to_var:
 		{
-			s64* where = (s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val];
+			s64* where = (s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val_s64];
 			dprint(
 				"[stack_base + %lli](%lli) = %lli\n",
-				expr.a.val, *where, expr.b.val
+				expr.a.val_s64, *where, expr.b.val_s64
 			);
-			*where = expr.b.val;
+			*where = expr.b.val_s64;
 		} break;
 
 		case e_expr_var_to_reg:
 		{
-			s64 val = *(s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.b.val];
+			s64 val = *(s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.b.val_s64];
 			dprint(
 				"%s(%lli) = [stack_base + %lli](%lli)\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, expr.b.val, val
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64, expr.b.val_s64, val
 			);
-			g_registers[expr.a.val].val_s64 = val;
+			g_registers[expr.a.val_s64].val_s64 = val;
 		} break;
 
 		case e_expr_add_reg_reg:
 		{
 			dprint(
 				"add %s(%lli) %s(%lli)\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
 			);
-			g_registers[expr.a.val].val_s64 += g_registers[expr.b.val].val_s64;
+			g_registers[expr.a.val_s64].val_s64 += g_registers[expr.b.val_s64].val_s64;
+		} break;
+
+		case e_expr_sub_reg_reg:
+		{
+			dprint(
+				"sub %s(%lli) %s(%lli)\n",
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
+			);
+			g_registers[expr.a.val_s64].val_s64 -= g_registers[expr.b.val_s64].val_s64;
 		} break;
 
 		case e_expr_add_reg_to_var:
 		{
-			s64* val = (s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val];
+			s64* val = (s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val_s64];
 			dprint(
 				"[stack_base + %lli](%lli) += %s(%lli)\n",
-				expr.a.val, *val, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				expr.a.val_s64, *val, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
 			);
-			*val += g_registers[expr.b.val].val_s64;
+			*val += g_registers[expr.b.val_s64].val_s64;
 		} break;
 
 		case e_expr_sub_reg_from_var:
 		{
-			s64* val = (s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val];
+			s64* val = (s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val_s64];
 			dprint(
 				"[stack_base + %lli](%lli) -= %s(%lli)\n",
-				expr.a.val, *val, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				expr.a.val_s64, *val, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
 			);
-			*val -= g_registers[expr.b.val].val_s64;
+			*val -= g_registers[expr.b.val_s64].val_s64;
 		} break;
 
 		case e_expr_divide_reg_reg:
 		{
 			dprint(
 				"div %s(%lli) %s(%lli)\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
 			);
-			g_registers[expr.a.val].val_s64 /= g_registers[expr.b.val].val_s64;
+			g_registers[expr.a.val_s64].val_s64 /= g_registers[expr.b.val_s64].val_s64;
 		} break;
 
 		case e_expr_reg_mod_reg:
 		{
 			dprint(
 				"mod %s(%lli) %s(%lli)\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
 			);
-			assert(g_registers[expr.b.val].val_s64 != 0);
-			g_registers[expr.a.val].val_s64 %= g_registers[expr.b.val].val_s64;
+			assert(g_registers[expr.b.val_s64].val_s64 != 0);
+			g_registers[expr.a.val_s64].val_s64 %= g_registers[expr.b.val_s64].val_s64;
 		} break;
 
-		case e_expr_imul2_reg_var:
+		case e_expr_multiply_reg_var:
 		{
-			s_var var = *get_var(expr.b.val);
+			s_var var = *get_var(expr.b.val_s64);
 			dprint(
 				"imul2 %s(%lli), %lli\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, var.val.val_s64
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64, var.val.val_s64
 			);
-			g_registers[expr.a.val].val_s64 *= var.val.val_s64;
+			g_registers[expr.a.val_s64].val_s64 *= var.val.val_s64;
 		} break;
 
-		case e_expr_imul2_reg_reg:
+		// @Fixme(tkap, 04/08/2023): We need multiply for floats too
+		case e_expr_multiply_reg_reg:
 		{
 			dprint(
 				"imul2 %s(%lli), %s(%lli)\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
 			);
-			g_registers[expr.a.val].val_s64 *= g_registers[expr.b.val].val_s64;
+			g_registers[expr.a.val_s64].val_s64 *= g_registers[expr.b.val_s64].val_s64;
 		} break;
 
-		case e_expr_imul3:
-		{
-			s_var var = *get_var(expr.b.val);
-			g_registers[expr.a.val].val_s64 = var.val.val_s64 * expr.c.val;
-		} break;
 
 		case e_expr_reg_to_var:
 		{
-			s64* where = (s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val];
+			s64* where = (s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.a.val_s64];
 			dprint(
 				"[stack_base + %lli](%lli) = %s(%lli)\n",
-				expr.a.val, *where, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				expr.a.val_s64, *where, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
 			);
-			*where = g_registers[expr.b.val].val_s64;
+			*where = g_registers[expr.b.val_s64].val_s64;
 		} break;
 
 		case e_expr_reg_to_var_from_reg:
 		{
-			s64 reg_val = g_registers[expr.a.val].val_s64;
+			s64 reg_val = g_registers[expr.a.val_s64].val_s64;
 			s64* where = (s64*)&g_code_exec_data.stack[g_code_exec_data.stack_base + reg_val];
 			dprint(
 				"[stack_base + %lli](%lli) = %s(%lli)\n",
-				reg_val, *where, register_to_str(expr.b.val), g_registers[expr.b.val].val_s64
+				reg_val, *where, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
 			);
-			*where = g_registers[expr.b.val].val_s64;
+			*where = g_registers[expr.b.val_s64].val_s64;
 		} break;
 
 		case e_expr_set_stack_base:
@@ -642,43 +670,37 @@ func s64 execute_expr(s_expr expr)
 			// g_vars.add(var);
 		} break;
 
-		case e_expr_print_immediate:
-		{
-			printf("%lli\n", expr.a.val);
-		} break;
-
-		case e_expr_print_var:
-		{
-			s_var* var = get_var(expr.a.val);
-			printf("%lli\n", var->val.val_s64);
-		} break;
-
-		case e_expr_print_reg:
-		{
-			printf("%lli\n", g_registers[expr.a.val].val_s64);
-		} break;
 
 		case e_expr_jump:
 		{
-			result = expr.a.val;
+			result = expr.a.val_s64;
 		} break;
 
 		case e_expr_immediate_to_reg:
 		{
 			dprint(
 				"mov %s(%lli) %lli\n",
-				register_to_str(expr.a.val), g_registers[expr.a.val].val_s64, expr.b.val
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64, expr.b.val_s64
 			);
-			g_registers[expr.a.val].val_s64 = expr.b.val;
+			g_registers[expr.a.val_s64].val_s64 = expr.b.val_s64;
+		} break;
+
+		case e_expr_immediate_float_to_reg:
+		{
+			dprint(
+				"movf %s(%f) %f\n",
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_float, expr.b.val_float
+			);
+			g_registers[expr.a.val_s64].val_float = expr.b.val_float;
 		} break;
 
 		case e_expr_add_stack_pointer:
 		{
 			dprint(
 				"stack_pointer(%lli) += %lli\n",
-				g_code_exec_data.stack_pointer, expr.a.val
+				g_code_exec_data.stack_pointer, expr.a.val_s64
 			);
-			g_code_exec_data.stack_pointer += expr.a.val;
+			g_code_exec_data.stack_pointer += expr.a.val_s64;
 		} break;
 
 		invalid_default_case;
@@ -716,60 +738,51 @@ func void print_exprs()
 				printf("var_decl\n");
 			} break;
 
-			case e_expr_print_immediate:
-			{
-				printf("print %lli\n", expr.a.val);
-			} break;
-
-			case e_expr_print_var:
-			{
-				printf("print var id %lli\n", expr.a.val);
-			} break;
 
 			case e_expr_jump:
 			{
-				printf("jump %lli\n", expr.a.val);
+				printf("jump %lli\n", expr.a.val_s64);
 			} break;
 
 			case e_expr_immediate_to_var:
 			{
-				printf("[stack_base + %lli] = %lli\n", expr.a.val, expr.b.val);
+				printf("[stack_base + %lli] = %lli\n", expr.a.val_s64, expr.b.val_s64);
 			} break;
 
 			case e_expr_var_to_reg:
 			{
-				printf("%s = [stack_base + %lli]\n", register_to_str(expr.a.val), expr.b.val);
+				printf("%s = [stack_base + %lli]\n", register_to_str(expr.a.val_s64), expr.b.val_s64);
 			} break;
 
 			case e_expr_reg_to_var:
 			{
-				printf("[stack_base + %lli] = %s\n", g_code_exec_data.stack_base + expr.a.val, register_to_str(expr.b.val));
+				printf("[stack_base + %lli] = %s\n", g_code_exec_data.stack_base + expr.a.val_s64, register_to_str(expr.b.val_s64));
 			} break;
 
 			case e_expr_reg_to_var_from_reg:
 			{
-				printf("[stack_base + %s] = %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
+				printf("[stack_base + %s] = %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
 
 
 			case e_expr_jump_greater:
 			{
-				printf("jg %lli\n", expr.a.val);
+				printf("jg %lli\n", expr.a.val_s64);
 			} break;
 
 			case e_expr_jump_greater_or_equal:
 			{
-				printf("jge %lli\n", expr.a.val);
+				printf("jge %lli\n", expr.a.val_s64);
 			} break;
 
 			case e_expr_jump_equal:
 			{
-				printf("je %lli\n", expr.a.val);
+				printf("je %lli\n", expr.a.val_s64);
 			} break;
 
 			case e_expr_jump_not_equal:
 			{
-				printf("jne %lli\n", expr.a.val);
+				printf("jne %lli\n", expr.a.val_s64);
 			} break;
 
 			case e_expr_return:
@@ -779,62 +792,57 @@ func void print_exprs()
 
 			case e_expr_reg_inc:
 			{
-				printf("inc %s\n", register_to_str(expr.a.val));
+				printf("inc %s\n", register_to_str(expr.a.val_s64));
 			} break;
 
 			case e_expr_cmp_reg_reg:
 			{
-				printf("cmp %s %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
+				printf("cmp %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
 
-			case e_expr_imul2_reg_reg:
+			case e_expr_multiply_reg_reg:
 			{
-				printf("imul %s %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
-			} break;
-
-			case e_expr_imul3:
-			{
-				printf("imul\n");
+				printf("imul %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
 
 			case e_expr_immediate_to_reg:
 			{
-				printf("%s = %lli\n", register_to_str(expr.a.val), expr.b.val);
+				printf("%s = %lli\n", register_to_str(expr.a.val_s64), expr.b.val_s64);
 			} break;
 
 			case e_expr_cmp_var_reg:
 			{
-				printf("cmp [stack_base + %lli] %s\n", expr.a.val, register_to_str(expr.b.val));
+				printf("cmp [stack_base + %lli] %s\n", expr.a.val_s64, register_to_str(expr.b.val_s64));
 			} break;
 
 			case e_expr_divide_reg_reg:
 			{
-				printf("div %s %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
+				printf("div %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
 
 			case e_expr_reg_mod_reg:
 			{
-				printf("mod %s %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
+				printf("mod %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
 
 			case e_expr_add_reg_reg:
 			{
-				printf("add %s %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
+				printf("add %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
 
 			case e_expr_call:
 			{
-				printf("call %lli\n", expr.a.val);
+				printf("call %lli\n", expr.a.val_s64);
 			} break;
 
 			case e_expr_push_reg:
 			{
-				printf("push %s\n", register_to_str(expr.a.val));
+				printf("push %s\n", register_to_str(expr.a.val_s64));
 			} break;
 
 			case e_expr_pop_var:
 			{
-				s_var var = *get_var(expr.a.val);
+				s_var var = *get_var(expr.a.val_s64);
 				printf("pop var%lli\n", var.id);
 			} break;
 
@@ -845,32 +853,27 @@ func void print_exprs()
 
 			case e_expr_add_stack_pointer:
 			{
-				printf("stack_pointer += %lli\n", expr.a.val);
-			} break;
-
-			case e_expr_print_reg:
-			{
-				printf("print %s\n", register_to_str(expr.a.val));
+				printf("stack_pointer += %lli\n", expr.a.val_s64);
 			} break;
 
 			case e_expr_add_reg_to_var:
 			{
-				printf("[stack_base + %lli] += %s\n", expr.a.val, register_to_str(expr.b.val));
+				printf("[stack_base + %lli] += %s\n", expr.a.val_s64, register_to_str(expr.b.val_s64));
 			} break;
 
 			case e_expr_reg_to_address:
 			{
-				printf("[%s] = %s\n", register_to_str(expr.a.val), register_to_str(expr.b.val));
+				printf("[%s] = %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
 
 			case e_expr_pointer_to_reg:
 			{
-				printf("%s = %p\n", register_to_str(expr.a.val), expr.b.val_ptr);
+				printf("%s = %p\n", register_to_str(expr.a.val_s64), expr.b.val_ptr);
 			} break;
 
 			case e_expr_call_external:
 			{
-				printf("call %lli\n", expr.a.val);
+				printf("call %lli\n", expr.a.val_s64);
 			} break;
 
 

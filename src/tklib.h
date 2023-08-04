@@ -1779,6 +1779,16 @@ func void eat_whitespace(s_tokenizer* tokenizer)
 	}
 }
 
+func b8 can_start_number(char* str)
+{
+	assert(str);
+	assert(*str != 0);
+
+	if(is_number(*str)) { return true; }
+	if(*str == '-' && is_number(str[1])) { return true; }
+	return false;
+}
+
 func s_token next_token(s_tokenizer* tokenizer)
 {
 	if(tokenizer->line_num == 0) { tokenizer->line_num = 1; }
@@ -1883,7 +1893,7 @@ func s_token next_token(s_tokenizer* tokenizer)
 		token.length = (int)(tokenizer->at - token.at);
 	}
 
-	else if(is_number(tokenizer->at[0]))
+	else if(can_start_number(tokenizer->at))
 	{
 		token.at = tokenizer->at;
 		tokenizer->at += 1;

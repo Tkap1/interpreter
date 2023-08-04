@@ -12,12 +12,6 @@
 
 
 
-union s_val
-{
-	s64 val_s64;
-	void* val_ptr;
-};
-
 typedef s_val s_register;
 
 // @TODO(tkap, 26/07/2023): Do we need data that tells us if this is a pointer????
@@ -25,6 +19,12 @@ struct s_var
 {
 	s64 id;
 	s_val val;
+};
+
+struct s_parse_file_and_execute_result
+{
+	b8 compilation_succeded;
+	s64 return_val;
 };
 
 struct s_code_exec_data
@@ -41,7 +41,7 @@ DWORD WINAPI watch_for_file_changes(void* param);
 func void print_exprs();
 func char* register_to_str(int reg);
 func void do_tests();
-func s64 parse_file_and_execute(char* file);
+func s_parse_file_and_execute_result parse_file_and_execute(char* file, b8 print_errors);
 func void reset_globals();
 func s_func get_func_by_id(int id);
 func s_var* get_var(s64 id);

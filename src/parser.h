@@ -4,6 +4,7 @@ enum e_node
 	e_node_invalid,
 	e_node_func_call,
 	e_node_integer,
+	e_node_float,
 	e_node_identifier,
 	e_node_var_decl,
 	e_node_for,
@@ -100,6 +101,11 @@ struct s_node
 		{
 			s64 val;
 		} integer;
+
+		struct
+		{
+			float val;
+		} nfloat;
 
 		struct
 		{
@@ -203,7 +209,7 @@ struct s_error_reporter
 {
 	b8 has_error;
 	b8 has_warning;
-	char error_str[256];
+	char error_str[1024];
 
 	void warning(int line, char* file, char* str, ...);
 	void error(int line, char* file, char* str, ...);

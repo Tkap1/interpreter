@@ -1,0 +1,19 @@
+
+
+func void func_a()
+{
+	int a = 1;
+	int b = 2;
+	int c = 3;
+	int d = 4;
+}
+
+
+func int main()
+{
+	func_a();
+	int result = 0;
+	int foo;
+	result += foo;
+	return result;
+}

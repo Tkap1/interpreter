@@ -14,3 +14,7 @@ we seem to insert a return at the end of the program. this is not necesary anymo
 calc as much shit as possible during type check, like how much stack in bytes a function decl uses
 
 make other structs work. only s_color works
+
+multipel return values
+
+we need casting

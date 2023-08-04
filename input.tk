@@ -7,6 +7,12 @@ struct s_color
 	u8 a;
 }
 
+struct s_v2
+{
+	int x;
+	int y;
+}
+
 external_func int printf(char*, int) "msvcrt.dll";
 external_func void InitWindow(int, int, char*) "raylib.dll";
 external_func void BeginDrawing() "raylib.dll";
@@ -16,12 +22,15 @@ external_func bool WindowShouldClose() "raylib.dll";
 external_func void DrawRectangle(int, int, int, int, s_color) "raylib.dll";
 external_func void CloseWindow() "raylib.dll";
 external_func bool IsKeyDown(int) "raylib.dll";
+external_func bool IsKeyPressed(int) "raylib.dll";
 external_func void SetTargetFPS(int) "raylib.dll";
 
 func int main()
 {
 	SetTargetFPS(120);
-	InitWindow(800, 600, "dog");
+	int ww = 600;
+	int wh = 600;
+	InitWindow(ww, wh, "dog");
 
 	s_color c;
 	c.r = 51;
@@ -31,12 +40,15 @@ func int main()
 
 	s_color red;
 	red.r = 255;
-	red.g = 0;
-	red.b = 0;
 	red.a = 255;
 
-	int x = 0;
-	int y = 0;
+	s_v2 pos;
+	s_v2 vel;
+	float speed = 10;
+
+	s_v2 player_size;
+	player_size.x = 16;
+	player_size.y = 40;
 
 	for 100000
 	{
@@ -47,24 +59,35 @@ func int main()
 		BeginDrawing();
 		ClearBackground(c);
 
+		float dir;
 		if IsKeyDown(65)
 		{
-			x -= 10;
+			dir -= 1;
 		}
 		if IsKeyDown(68)
 		{
-			x += 10;
-		}
-		if IsKeyDown(87)
-		{
-			y -= 10;
-		}
-		if IsKeyDown(83)
-		{
-			y += 10;
+			dir += 1;
 		}
 
-		DrawRectangle(x, y, 64, 64, red);
+		vel.x += dir * speed;
+		vel.y += 1;
+
+		if IsKeyPressed(32)
+		{
+			vel.y = -15;
+		}
+
+		pos.x += vel.x;
+		pos.y += vel.y;
+
+		if pos.y > wh - player_size.y
+		{
+			pos.y = wh - player_size.y;
+		}
+
+		vel.x = 0;
+
+		DrawRectangle(pos.x, pos.y, player_size.x, player_size.y, red);
 
 		EndDrawing();
 	}
