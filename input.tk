@@ -20,8 +20,8 @@ external_func void SetTargetFPS(int) "raylib.dll";
 
 func int main()
 {
-	SetTargetFPS(60);
-	InitWindow(800, 600, "cakez77");
+	SetTargetFPS(120);
+	InitWindow(800, 600, "dog");
 
 	s_color c;
 	c.r = 51;

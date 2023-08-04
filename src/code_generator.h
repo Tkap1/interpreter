@@ -129,6 +129,7 @@ union s_foo
 
 struct s_gen_data
 {
+	b8 need_compare;
 	int members;
 	e_node comparison;
 };

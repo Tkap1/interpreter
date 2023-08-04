@@ -18,6 +18,7 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 {
 	s_gen_data result = zero;
 	result.members = 1;
+	result.need_compare = true;
 	assert(base_register < e_register_count);
 	switch(node->type)
 	{
@@ -122,6 +123,7 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 		case e_node_equals:
 		{
 			result.comparison = e_node_equals;
+			result.need_compare = false;
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
 			add_expr({.type = e_expr_cmp_reg_reg, .a = {.val = base_register}, .b = {.val = base_register + 1}});
@@ -148,7 +150,8 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 
 				case e_unary_logical_not:
 				{
-
+					generate_expr(unary->expr, base_register);
+					result.comparison = e_node_equals;
 				} break;
 				invalid_default_case;
 
@@ -270,6 +273,10 @@ func void generate_statement(s_node* node, int base_register)
 		{
 			s_gen_data gen_data = generate_expr(node->nif.expr, base_register);
 			int jump_index = 0;
+			if(gen_data.need_compare)
+			{
+				add_expr({.type = e_expr_cmp_reg_immediate, .a = {.val = base_register}, .b = {.val = 0}});
+			}
 			switch(gen_data.comparison)
 			{
 				case e_node_equals:
@@ -277,10 +284,13 @@ func void generate_statement(s_node* node, int base_register)
 					jump_index = add_expr({.type = e_expr_jump_not_equal, .a = {.val = -1}});
 				} break;
 
-				// @Note(tkap, 02/08/2023): This handles things like "if 55"
+				case e_node_not_equals:
+				{
+					jump_index = add_expr({.type = e_expr_jump_equal, .a = {.val = -1}});
+				} break;
+
 				default:
 				{
-					add_expr({.type = e_expr_cmp_reg_immediate, .a = {.val = base_register}, .b = {.val = 0}});
 					jump_index = add_expr({.type = e_expr_jump_equal, .a = {.val = -1}});
 				} break;
 			}
