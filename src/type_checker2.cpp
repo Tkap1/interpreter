@@ -621,6 +621,11 @@ func char* expr_to_str(s_node* node)
 			return format_text("%s - %s", expr_to_str(node->arithmetic.left), expr_to_str(node->arithmetic.right));
 		} break;
 
+		case e_node_func_call:
+		{
+			return expr_to_str(node->func_call.left);
+		} break;
+
 		invalid_default_case;
 	}
 	return null;
@@ -633,6 +638,11 @@ func char* type_to_str(s_node* node)
 		case e_node_type:
 		{
 			return node->ntype.name.data;
+		} break;
+
+		case e_node_struct:
+		{
+			return node->nstruct.name.data;
 		} break;
 
 		invalid_default_case;

@@ -1,0 +1,9 @@
+
+external_func float sqrtf(float) "msvcrt.dll";
+
+func int main()
+{
+	float s = sqrtf(55.0);
+	int result = cast int s;
+	return result;
+}

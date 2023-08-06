@@ -130,6 +130,7 @@ func void do_tests()
 		{.file = "tests/cast1.tk", .expected_result = 333},
 		{.file = "tests/cast2.tk", .expected_result = 456},
 		{.file = "tests/add_to_float.tk", .expected_result = 1235},
+		{.file = "tests/float_func.tk", .expected_result = 7},
 	};
 
 	for(int test_i = 0; test_i < array_count(c_tests); test_i++)
@@ -264,6 +265,12 @@ func s64 execute_expr(s_expr expr)
 							offsets.insert(0, temp_offset);
 						} break;
 
+						case e_type_float:
+						{
+							temp_offset -= 4;
+							offsets.insert(0, temp_offset);
+						} break;
+
 						case e_type_char:
 						{
 							temp_offset -= 1;
@@ -303,6 +310,11 @@ func s64 execute_expr(s_expr expr)
 						case e_type_int:
 						{
 							dcArgInt(g_vm, *(int*)val);
+						} break;
+
+						case e_type_float:
+						{
+							dcArgFloat(g_vm, *(float*)val);
 						} break;
 
 						case e_type_char:
@@ -371,6 +383,13 @@ func s64 execute_expr(s_expr expr)
 					s64 func_result = dcCallInt(g_vm, (DCpointer)f.ptr);
 					g_registers[expr.b.val_s64].val_s64 = 0;
 					g_registers[expr.b.val_s64].val_s32 = func_result;
+				} break;
+
+				case e_type_float:
+				{
+					float func_result = dcCallFloat(g_vm, (DCpointer)f.ptr);
+					g_registers[expr.b.val_s64].val_s64 = 0;
+					g_registers[expr.b.val_s64].val_float = func_result;
 				} break;
 
 				case e_type_bool:

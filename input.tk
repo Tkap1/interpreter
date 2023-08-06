@@ -14,6 +14,7 @@ struct s_v2
 }
 
 external_func int printf(char*, int) "msvcrt.dll";
+external_func float sqrtf(float) "msvcrt.dll";
 external_func void InitWindow(int, int, char*) "raylib.dll";
 external_func void BeginDrawing() "raylib.dll";
 external_func void EndDrawing() "raylib.dll";
@@ -27,6 +28,23 @@ external_func void SetTargetFPS(int) "raylib.dll";
 external_func s_v2 GetMousePosition() "raylib.dll";
 external_func s_v2 IsMouseButtonPressed(int) "raylib.dll";
 
+func float v2_length(s_v2 v)
+{
+	return sqrtf(v.x * v.x + v.y * v.y);
+}
+
+func s_v2 v2_normalized(s_v2 v)
+{
+	s_v2 result = v;
+	float length = v2_length(v);
+	if length > 0
+	{
+		result.x = result.x / length;
+		result.y = result.y / length;
+	}
+	return result;
+}
+
 func int main()
 {
 	SetTargetFPS(120);
@@ -39,6 +57,7 @@ func int main()
 	s_v2 proj_size;
 	proj_size.x = 32.0;
 	proj_size.y = 32.0;
+	s_v2 proj_dir;
 
 	s_color c;
 	c.r = 51;
@@ -93,6 +112,7 @@ func int main()
 
 		if IsMouseButtonPressed(0)
 		{
+			proj_dir = v2_normalized(mouse - pos);
 			proj_active = 1;
 			proj = pos;
 		}
