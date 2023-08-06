@@ -24,6 +24,7 @@ external_func void CloseWindow() "raylib.dll";
 external_func bool IsKeyDown(int) "raylib.dll";
 external_func bool IsKeyPressed(int) "raylib.dll";
 external_func void SetTargetFPS(int) "raylib.dll";
+external_func s_v2 GetMousePosition() "raylib.dll";
 
 func int main()
 {
@@ -58,6 +59,8 @@ func int main()
 		}
 		BeginDrawing();
 		ClearBackground(c);
+
+		//s_v2 mouse = GetMousePosition();
 
 		float dir;
 		if IsKeyDown(65)

@@ -313,22 +313,15 @@ func s64 execute_expr(s_expr expr)
 
 							auto nstruct = arg.type->nstruct;
 
+							u8 data[1024];
+							u8* cursor = data;
+
 							int i = 0;
-							struct s_color
-							{
-								u8 r;
-								u8 g;
-								u8 b;
-								u8 a;
-							};
-							s_color c = {255,255,255,255};
-							DCaggr* dcs = dcNewAggr(4, sizeof(s_color));
+							DCaggr* dcs = dcNewAggr(4, 4);
 							dcAggrField(dcs, DC_SIGCHAR_UCHAR, 0, 1);
 							dcAggrField(dcs, DC_SIGCHAR_UCHAR, 1, 1);
 							dcAggrField(dcs, DC_SIGCHAR_UCHAR, 2, 1);
 							dcAggrField(dcs, DC_SIGCHAR_UCHAR, 3, 1);
-
-							u8* wtf[] = {&c.r, &c.g, &c.b, &c.a};
 
 							for_node(member, nstruct.members)
 							{
@@ -343,7 +336,8 @@ func s64 execute_expr(s_expr expr)
 								{
 									case e_type_u8:
 									{
-										*wtf[i] = *(u8*)val;
+										*cursor = *(u8*)val;
+										cursor += 1;
 									} break;
 									invalid_default_case;
 								}
@@ -351,7 +345,7 @@ func s64 execute_expr(s_expr expr)
 								i += 1;
 							}
 							dcCloseAggr(dcs);
-							dcArgAggr(g_vm, dcs, &c);
+							dcArgAggr(g_vm, dcs, data);
 							dcFreeAggr(dcs);
 
 							// @Hack(tkap, 01/08/2023): Because we increment at the end
