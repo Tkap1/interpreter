@@ -21,7 +21,7 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 	result.need_compare = true;
 	if(node->type_node)
 	{
-		result.sizes[0] = node->type_node->ntype.size_in_bytes;
+		result.sizes[0] = get_size(node);
 	}
 	assert(base_register < e_register_count);
 	switch(node->type)
@@ -133,16 +133,16 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 				int i = 0;
 				for_node(member, node->type_node->nstruct.members)
 				{
-					e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_8, member->type_node->ntype.size_in_bytes);
+					e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_8, get_size(member));
 					add_expr({.type = expr, .a = {.val_s64 = base_register + i}, .b = {.val_s64 = node->stack_offset + member->stack_offset}});
-					result.sizes[i] = member->type_node->ntype.size_in_bytes;
+					result.sizes[i] = get_size(member);
 					assert(result.sizes[i] > 0);
 					i += 1;
 				}
 			}
 			else
 			{
-				e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_8, node->type_node->ntype.size_in_bytes);
+				e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_8, get_size(node));
 				add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
 			}
 		} break;
@@ -261,7 +261,7 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 
 				default:
 				{
-					e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_8, node->type_node->ntype.size_in_bytes);
+					e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_8, get_size(node));
 					add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
 				} break;
 			}
@@ -282,7 +282,7 @@ func void generate_statement(s_node* node, int base_register)
 			if(node->var_decl.val)
 			{
 				generate_expr(node->var_decl.val, base_register);
-				e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_8, node->type_node->ntype.size_in_bytes);
+				e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_8, get_size(node));
 				add_expr({.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register}});
 			}
 			else
@@ -322,7 +322,7 @@ func void generate_statement(s_node* node, int base_register)
 				add_expr({.type = e_expr_reg_dec, .a = {.val_s64 = base_register + 1}});
 
 				{
-					e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_8, for_expr->type_node->ntype.size_in_bytes);
+					e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_8, get_size(for_expr));
 					add_expr({.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register + 1}});
 				}
 
@@ -341,7 +341,7 @@ func void generate_statement(s_node* node, int base_register)
 				// Otherwise, we need to reference a variable
 				generate_expr(for_expr, base_register + 1);
 				{
-					e_expr expr = adjust_expr_based_on_size(e_expr_cmp_var_reg_8, for_expr->type_node->ntype.size_in_bytes);
+					e_expr expr = adjust_expr_based_on_size(e_expr_cmp_var_reg_8, get_size(for_expr));
 					comparison_index = add_expr(
 						{.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register + 1}}
 					);
@@ -461,7 +461,7 @@ func void generate_statement(s_node* node, int base_register)
 			generate_expr_address(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
 
-			e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_from_reg_8, node->arithmetic.left->type_node->ntype.size_in_bytes);
+			e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_from_reg_8, get_size(node->arithmetic.left));
 			add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
 		} break;
 
@@ -479,7 +479,7 @@ func void generate_statement(s_node* node, int base_register)
 
 				default:
 				{
-					e_expr expr = adjust_expr_based_on_size(e_expr_add_reg_to_var_8, node->arithmetic.left->type_node->ntype.size_in_bytes);
+					e_expr expr = adjust_expr_based_on_size(e_expr_add_reg_to_var_8, get_size(node->arithmetic.left));
 					add_expr({.type = expr, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
 				} break;
 			}
@@ -506,7 +506,7 @@ func void generate_statement(s_node* node, int base_register)
 		case e_node_times_equals:
 		{
 			{
-				e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_8, node->arithmetic.left->type_node->ntype.size_in_bytes);
+				e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_8, get_size(node->arithmetic.left));
 				add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->arithmetic.left->stack_offset}});
 			}
 
@@ -514,7 +514,7 @@ func void generate_statement(s_node* node, int base_register)
 			add_expr({.type = e_expr_multiply_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
 
 			{
-				e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_8, node->arithmetic.left->type_node->ntype.size_in_bytes);
+				e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_8, get_size(node->arithmetic.left));
 				add_expr({.type = expr, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
 			}
 		} break;

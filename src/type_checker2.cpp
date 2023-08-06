@@ -262,7 +262,7 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 			node->stack_offset = func_decl_or_struct->nstruct.bytes_used_by_members;
 			assert(node->struct_member.type->type_node);
 			node->type_node = node->struct_member.type->type_node;
-			func_decl_or_struct->nstruct.bytes_used_by_members += node->type_node->ntype.size_in_bytes;
+			func_decl_or_struct->nstruct.bytes_used_by_members += get_size(node);
 		} break;
 
 		case e_node_func_arg:
@@ -270,7 +270,7 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 			type_check_statement(node->func_arg.type, file, reporter, null);
 			assert(node->func_arg.type->type_node);
 			node->type_node = node->func_arg.type->type_node;
-			func_decl_or_struct->func_decl.bytes_used_by_args += node->type_node->ntype.size_in_bytes;
+			func_decl_or_struct->func_decl.bytes_used_by_args += get_size(node);
 			node->stack_offset = -func_decl_or_struct->func_decl.bytes_used_by_args;
 
 			add_var(*node);
@@ -295,8 +295,7 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 				type_check_expr(node->var_decl.val, file, reporter, null);
 			}
 			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args + func_decl_or_struct->func_decl.bytes_used_by_local_variables;
-			assert(node->type_node->ntype.size_in_bytes > 0);
-			func_decl_or_struct->func_decl.bytes_used_by_local_variables += node->type_node->ntype.size_in_bytes;
+			func_decl_or_struct->func_decl.bytes_used_by_local_variables += get_size(node);
 
 			add_var(*node);
 
@@ -673,4 +672,15 @@ func b8 left_can_have_right_assigned_to_it(s_node* left, s_node* right)
 		}
 	}
 	return true;
+}
+
+func int get_size(s_node* node)
+{
+	assert(node->type_node);
+
+	if(node->pointer_level > 0)
+	{
+		return 8;
+	}
+	return node->type_node->ntype.size_in_bytes;
 }

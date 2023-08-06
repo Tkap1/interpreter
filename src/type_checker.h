@@ -31,3 +31,4 @@ func char* expr_to_str(s_node* node);
 func char* type_to_str(s_node* node);
 func void type_check_statement(s_node* node, char* file, s_error_reporter* reporter, s_node* func_decl_or_struct);
 func b8 left_can_have_right_assigned_to_it(s_node* left, s_node* right);
+func int get_size(s_node* node);

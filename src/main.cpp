@@ -243,8 +243,10 @@ func s64 execute_expr(s_expr expr)
 
 			s_sarray<int, 128> offsets;
 			int temp_offset = g_code_exec_data.stack_pointer;
-			foreach_raw(arg_i, arg, f.args)
+			// foreach_raw(arg_i, arg, f.args)
+			for(int arg_i = f.args.count - 1; arg_i >= 0; arg_i--)
 			{
+				s_type arg = f.args[arg_i];
 				if(arg.pointer_level > 0)
 				{
 					temp_offset -= 8;
@@ -272,7 +274,7 @@ func s64 execute_expr(s_expr expr)
 							auto nstruct = arg.type->nstruct;
 							for_node(member, nstruct.members)
 							{
-								temp_offset -= member->type_node->ntype.size_in_bytes;
+								temp_offset -= get_size(member);
 								offsets.insert(0, temp_offset);
 							}
 						} break;
