@@ -1,0 +1,28 @@
+
+
+struct s_color
+{
+	u8 r;
+	u8 g;
+	u8 b;
+	u8 a;
+}
+
+func int func_a(s_color c)
+{
+	return c.g;
+}
+
+func int main()
+{
+	s_color red;
+	red.r = 255;
+	red.a = 255;
+
+	s_color green;
+	green.g = 255;
+	green.a = 255;
+
+	return func_a(red);
+
+}

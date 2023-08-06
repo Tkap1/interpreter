@@ -119,6 +119,8 @@ func void do_tests()
 		{.file = "tests/struct2.tk", .expected_result = 4},
 		{.file = "tests/struct3.tk", .expected_result = 6},
 		{.file = "tests/struct4.tk", .expected_result = 255},
+		{.file = "tests/struct5.tk", .expected_result = 0},
+		{.file = "tests/struct6.tk", .expected_result = 2},
 		{.file = "tests/bool1.tk", .expected_result = 88},
 		{.file = "tests/bool2.tk", .expected_result = 11},
 		{.file = "tests/zero_init.tk", .expected_result = 0},
@@ -367,16 +369,40 @@ func s64 execute_expr(s_expr expr)
 				case e_type_int:
 				{
 					s64 func_result = dcCallInt(g_vm, (DCpointer)f.ptr);
-					g_registers[expr.b.val_s64].val_s64 = func_result;
+					g_registers[expr.b.val_s64].val_s64 = 0;
+					g_registers[expr.b.val_s64].val_s32 = func_result;
 				} break;
 
 				case e_type_bool:
 				{
 					s64 func_result = dcCallBool(g_vm, (DCpointer)f.ptr);
-					g_registers[expr.b.val_s64].val_s64 = func_result;
+					g_registers[expr.b.val_s64].val_s64 = 0;
+					g_registers[expr.b.val_s64].val_s8 = func_result;
 				} break;
 
-				invalid_default_case;
+				default:
+				{
+					struct s_foo
+					{
+						float x;
+						float y;
+					};
+					s_foo foo = zero;
+
+					DCaggr* aggr = dcNewAggr(2, 8);
+					dcAggrField(aggr, DC_SIGCHAR_FLOAT, 0, 1);
+					dcAggrField(aggr, DC_SIGCHAR_FLOAT, 4, 1);
+					dcCloseAggr(aggr);
+
+					// u8 result[1024];
+					dcCallAggr(g_vm, (DCpointer)f.ptr, aggr, &foo);
+					dcFreeAggr(aggr);
+
+					g_registers[expr.b.val_s64].val_s64 = 0;
+					g_registers[expr.b.val_s64 + 1].val_s64 = 0;
+					g_registers[expr.b.val_s64].val_float = foo.x;
+					g_registers[expr.b.val_s64 + 1].val_float = foo.y;
+				} break;
 			}
 			// dcFree(vm);
 

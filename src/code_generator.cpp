@@ -1,17 +1,41 @@
 
-func void generate_expr_address(s_node* node, int base_register)
+func s_gen_data generate_expr_address(s_node* node, int base_register)
 {
 	assert(base_register < e_register_count);
+
+	s_gen_data result = zero;
+	result.members = 1;
+	if(node->type_node)
+	{
+		result.sizes[0] = get_size(node);
+	}
+
 	switch(node->type)
 	{
 		case e_node_member_access:
 		case e_node_identifier:
 		{
-			add_expr({.type = e_expr_immediate_to_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
+			if(node->type_node->type == e_node_struct)
+			{
+				result.members = node->type_node->nstruct.member_count;
+				int i = 0;
+				for_node(member, node->type_node->nstruct.members)
+				{
+					add_expr({.type = e_expr_immediate_to_reg, .a = {.val_s64 = base_register + i}, .b = {.val_s64 = node->stack_offset + member->stack_offset}});
+					result.sizes[i] = get_size(member);
+					i += 1;
+				}
+			}
+			else
+			{
+				add_expr({.type = e_expr_immediate_to_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
+			}
 		} break;
 
 		invalid_default_case;
 	}
+
+	return result;
 }
 
 func s_gen_data generate_expr(s_node* node, int base_register)
@@ -41,6 +65,7 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 			}
 			if(node->func_node->func_decl.external)
 			{
+				// @TODO(tkap, 06/08/2023): Could there be a problem when functions return structs and use more than 1 register??
 				add_expr({.type = e_expr_call_external, .a = {.val_s64 = node->func_node->func_decl.id}, .b = {.val_s64 = base_register}});
 			}
 			else
@@ -282,8 +307,21 @@ func void generate_statement(s_node* node, int base_register)
 			if(node->var_decl.val)
 			{
 				generate_expr(node->var_decl.val, base_register);
-				e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_8, get_size(node));
-				add_expr({.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register}});
+				if(node->type_node->type == e_node_struct)
+				{
+					int i = 0;
+					for_node(member, node->type_node->nstruct.members)
+					{
+						e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_8, get_size(member));
+						add_expr({.type = expr, .a = {.val_s64 = node->stack_offset + member->stack_offset}, .b = {.val_s64 = base_register + i}});
+						i += 1;
+					}
+				}
+				else
+				{
+					e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_8, get_size(node));
+					add_expr({.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register}});
+				}
 			}
 			else
 			{
@@ -458,11 +496,15 @@ func void generate_statement(s_node* node, int base_register)
 
 		case e_node_assign:
 		{
-			generate_expr_address(node->arithmetic.left, base_register);
-			generate_expr(node->arithmetic.right, base_register + 1);
+			s_gen_data data = generate_expr_address(node->arithmetic.left, base_register);
+			generate_expr(node->arithmetic.right, base_register + data.members + 1);
 
-			e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_from_reg_8, get_size(node->arithmetic.left));
-			add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+			for(int i = 0; i < data.members; i++)
+			{
+				e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_from_reg_8, data.sizes[i]);
+				add_expr({.type = expr, .a = {.val_s64 = base_register + i}, .b = {.val_s64 = base_register + data.members + i + 1}});
+			}
+
 		} break;
 
 		case e_node_plus_equals:

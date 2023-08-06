@@ -1,0 +1,20 @@
+
+
+struct s_v2i
+{
+	int x;
+	int y;
+}
+
+func int main()
+{
+	s_v2i a;
+	s_v2i b;
+
+	a.x = 1;
+	a.y = 2;
+	b.x = 3;
+	b.y = 4;
+	b = a;
+	return b.y;
+}
