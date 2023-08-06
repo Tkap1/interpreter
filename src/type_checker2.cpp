@@ -256,20 +256,22 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 	{
 		case e_node_struct_member:
 		{
-			// @Note(tkap, 31/07/2023): We may want to set node->struct_membe.type.struct_node = func_decl_or_struct
+			// @Note(tkap, 31/07/2023): We may want to set node->struct_member.type.struct_node = func_decl_or_struct
 			// or something like that. We'll see
 			type_check_statement(node->struct_member.type, file, reporter, null);
 			node->stack_offset = func_decl_or_struct->nstruct.bytes_used_by_members;
-			func_decl_or_struct->nstruct.bytes_used_by_members += node->struct_member.type->size;
+			assert(node->struct_member.type->type_node);
+			node->type_node = node->struct_member.type->type_node;
+			func_decl_or_struct->nstruct.bytes_used_by_members += node->type_node->ntype.size_in_bytes;
 		} break;
 
 		case e_node_func_arg:
 		{
 			type_check_statement(node->func_arg.type, file, reporter, null);
-			func_decl_or_struct->func_decl.bytes_used_by_args += node->func_arg.type->size;
-			node->stack_offset = -func_decl_or_struct->func_decl.bytes_used_by_args;
 			assert(node->func_arg.type->type_node);
 			node->type_node = node->func_arg.type->type_node;
+			func_decl_or_struct->func_decl.bytes_used_by_args += node->type_node->ntype.size_in_bytes;
+			node->stack_offset = -func_decl_or_struct->func_decl.bytes_used_by_args;
 
 			add_var(*node);
 		} break;
@@ -279,7 +281,6 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 			s_node* type = node_to_type(node);
 			assert(type);
 			node->type_node = type;
-			node->size = type->ntype.size_in_bytes;
 			node->pointer_level = node->possible_type.pointer_level;
 		} break;
 
@@ -294,8 +295,8 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 				type_check_expr(node->var_decl.val, file, reporter, null);
 			}
 			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args + func_decl_or_struct->func_decl.bytes_used_by_local_variables;
-			assert(node->var_decl.type->size > 0);
-			func_decl_or_struct->func_decl.bytes_used_by_local_variables += node->var_decl.type->size;
+			assert(node->type_node->ntype.size_in_bytes > 0);
+			func_decl_or_struct->func_decl.bytes_used_by_local_variables += node->type_node->ntype.size_in_bytes;
 
 			add_var(*node);
 
