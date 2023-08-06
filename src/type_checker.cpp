@@ -34,11 +34,11 @@ func s_node* node_to_type(s_node* node)
 			return null;
 		} break;
 
-		case e_node_type:
+		case e_node_possible_type:
 		{
 			foreach(type_i, type, g_type_check_data.types)
 			{
-				if(node->ntype.name.equals(&type->ntype.name))
+				if(node->possible_type.name.equals(&type->ntype.name))
 				{
 					return type;
 				}
@@ -209,10 +209,10 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter, char* f
 			{
 				reporter->fatal(
 					node->line, file, "Variable '%s' has unknown type '%s'",
-					node->var_decl.name.data, node->var_decl.ntype->ntype.name.data
+					node->var_decl.name.data, node->var_decl.type->possible_type.name.data
 				);
 			}
-			node->var_data.pointer_level = node->var_decl.ntype->ntype.pointer_level;
+			node->var_data.pointer_level = node->var_decl.type->possible_type.pointer_level;
 
 			// @Fixme(tkap, 27/07/2023): check if we have val
 			type_check_expr(node->var_decl.val, reporter, file);
@@ -329,7 +329,7 @@ func void type_check_statement(s_node* node, s_error_reporter* reporter, char* f
 
 func b8 type_check_type(s_node* node)
 {
-	assert(node->type == e_node_type);
+	assert(node->type == e_node_possible_type);
 	s_node* temp = node_to_type(node);
 	assert(temp);
 	node->var_data.id = temp->ntype.id;

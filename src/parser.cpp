@@ -39,19 +39,19 @@ func s_parse_result parse_type(s_tokenizer tokenizer, s_error_reporter* reporter
 	s_parse_result pr = zero;
 	s_token token = zero;
 	result.node.line = tokenizer.line_num;
-	result.node.type = e_node_type;
+	result.node.type = e_node_possible_type;
 
 	if(!consume_token(e_token_identifier, &tokenizer, &token)) { goto end; }
 
 	if(token_is_keyword(token)) { goto end; }
 
-	result.node.ntype.name.from_data(token.at, token.length);
+	result.node.possible_type.name.from_data(token.at, token.length);
 
 	while(true)
 	{
 		if(consume_token("*", &tokenizer))
 		{
-			result.node.ntype.pointer_level += 1;
+			result.node.possible_type.pointer_level += 1;
 		}
 		else { break; }
 	}
@@ -441,7 +441,7 @@ func s_parse_result parse_statement(s_tokenizer tokenizer, s_error_reporter* rep
 	{
 		tokenizer = var_decl_pr.tokenizer;
 		result.node.line = tokenizer.line_num;
-		var_decl->ntype = make_node(var_decl_pr.node);
+		var_decl->type = make_node(var_decl_pr.node);
 
 		result.node.type = e_node_var_decl;
 

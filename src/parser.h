@@ -31,6 +31,7 @@ enum e_node
 	e_node_break,
 	e_node_continue,
 	e_node_type,
+	e_node_possible_type,
 	e_node_str,
 	e_node_unary,
 	e_node_struct,
@@ -131,7 +132,7 @@ struct s_node
 		struct
 		{
 			s_str<64> name;
-			s_node* ntype;
+			s_node* type;
 			s_node* val;
 		} var_decl;
 
@@ -175,9 +176,14 @@ struct s_node
 		{
 			int size_in_bytes;
 			int id;
-			int pointer_level;
 			s_str<64> name;
 		} ntype;
+
+		struct
+		{
+			int pointer_level;
+			s_str<64> name;
+		} possible_type;
 
 		struct
 		{

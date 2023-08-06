@@ -98,11 +98,11 @@ func s_node* node_to_type(s_node* node)
 {
 	switch(node->type)
 	{
-		case e_node_type:
+		case e_node_possible_type:
 		{
 			foreach(type_i, type, g_type_check_data.types)
 			{
-				if(node->ntype.name.equals(&type->ntype.name))
+				if(node->possible_type.name.equals(&type->ntype.name))
 				{
 					return type;
 				}
@@ -110,7 +110,7 @@ func s_node* node_to_type(s_node* node)
 
 			foreach(type_i, type, g_type_check_data.structs)
 			{
-				if(node->ntype.name.equals(&type->nstruct.name))
+				if(node->possible_type.name.equals(&type->nstruct.name))
 				{
 					return type;
 				}
@@ -274,28 +274,28 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 			add_var(*node);
 		} break;
 
-		case e_node_type:
+		case e_node_possible_type:
 		{
 			s_node* type = node_to_type(node);
 			assert(type);
 			node->type_node = type;
 			node->size = type->ntype.size_in_bytes;
-			node->pointer_level = node->ntype.pointer_level;
+			node->pointer_level = node->possible_type.pointer_level;
 		} break;
 
 		case e_node_var_decl:
 		{
-			type_check_statement(node->var_decl.ntype, file, reporter, null);
-			assert(node->var_decl.ntype->type_node);
-			node->type_node = node->var_decl.ntype->type_node;
+			type_check_statement(node->var_decl.type, file, reporter, null);
+			assert(node->var_decl.type->type_node);
+			node->type_node = node->var_decl.type->type_node;
 
 			if(node->var_decl.val)
 			{
 				type_check_expr(node->var_decl.val, file, reporter, null);
 			}
 			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args + func_decl_or_struct->func_decl.bytes_used_by_local_variables;
-			assert(node->var_decl.ntype->size > 0);
-			func_decl_or_struct->func_decl.bytes_used_by_local_variables += node->var_decl.ntype->size;
+			assert(node->var_decl.type->size > 0);
+			func_decl_or_struct->func_decl.bytes_used_by_local_variables += node->var_decl.type->size;
 
 			add_var(*node);
 
@@ -330,7 +330,7 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 			s_node new_node = zero;
 			new_node.type = e_node_var_decl;
 			new_node.stack_offset = node->stack_offset;
-			new_node.var_decl.ntype = node_to_type(node->nfor.expr);
+			new_node.var_decl.type = node_to_type(node->nfor.expr);
 			new_node.type_node = get_type_by_name("int");
 			if(node->nfor.name.len > 0)
 			{
