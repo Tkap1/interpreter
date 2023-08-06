@@ -21,8 +21,8 @@ func int main()
 {
 	s_color white;
 	white.r = 51;
-	white.g = 51;
-	white.b = 51;
+	white.g = 52;
+	white.b = 53;
 	white.a = 255;
 
 	s_color red;

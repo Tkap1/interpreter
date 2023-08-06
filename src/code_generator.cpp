@@ -19,6 +19,10 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 	s_gen_data result = zero;
 	result.members = 1;
 	result.need_compare = true;
+	if(node->type_node)
+	{
+		result.sizes[0] = node->type_node->ntype.size_in_bytes;
+	}
 	assert(base_register < e_register_count);
 	switch(node->type)
 	{
@@ -31,7 +35,7 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 				result.members = temp_data.members;
 				for(int j = 0; j < temp_data.members; j++)
 				{
-					add_expr({.type = e_expr_push_reg, .a = {.val_s64 = base_register + i + j}});
+					add_expr({.type = e_expr_push_reg, .a = {.val_s64 = base_register + i + j}, .b = {.val_s64 = temp_data.sizes[j]}});
 				}
 				i += temp_data.members;
 			}
@@ -129,13 +133,17 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 				int i = 0;
 				for_node(member, node->type_node->nstruct.members)
 				{
-					add_expr({.type = e_expr_var_to_reg, .a = {.val_s64 = base_register + i}, .b = {.val_s64 = node->stack_offset + member->stack_offset}});
+					e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_8, member->type_node->ntype.size_in_bytes);
+					add_expr({.type = expr, .a = {.val_s64 = base_register + i}, .b = {.val_s64 = node->stack_offset + member->stack_offset}});
+					result.sizes[i] = member->type_node->ntype.size_in_bytes;
+					assert(result.sizes[i] > 0);
 					i += 1;
 				}
 			}
 			else
 			{
-				add_expr({.type = e_expr_var_to_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
+				e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_8, node->type_node->ntype.size_in_bytes);
+				add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
 			}
 		} break;
 
@@ -253,7 +261,8 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 
 				default:
 				{
-					add_expr({.type = e_expr_var_to_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
+					e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_8, node->type_node->ntype.size_in_bytes);
+					add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
 				} break;
 			}
 		} break;
@@ -273,7 +282,8 @@ func void generate_statement(s_node* node, int base_register)
 			if(node->var_decl.val)
 			{
 				generate_expr(node->var_decl.val, base_register);
-				add_expr({.type = e_expr_reg_to_var, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register}});
+				e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_8, node->type_node->ntype.size_in_bytes);
+				add_expr({.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register}});
 			}
 			else
 			{
@@ -295,7 +305,7 @@ func void generate_statement(s_node* node, int base_register)
 		case e_node_for:
 		{
 			auto nfor = node->nfor;
-			auto expr = nfor.expr;
+			auto for_expr = nfor.expr;
 
 			// @Note(tkap, 24/07/2023): Create the loop variable
 			// @Fixme(tkap, 31/07/2023):
@@ -308,9 +318,13 @@ func void generate_statement(s_node* node, int base_register)
 
 			if(nfor.reverse)
 			{
-				generate_expr(expr, base_register + 1);
+				generate_expr(for_expr, base_register + 1);
 				add_expr({.type = e_expr_reg_dec, .a = {.val_s64 = base_register + 1}});
-				add_expr({.type = e_expr_reg_to_var, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register + 1}});
+
+				{
+					e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_8, for_expr->type_node->ntype.size_in_bytes);
+					add_expr({.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register + 1}});
+				}
 
 				comparison_index = add_expr(
 					{.type = e_expr_cmp_var_immediate, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = 0}}
@@ -325,10 +339,13 @@ func void generate_statement(s_node* node, int base_register)
 
 				// @TODO(tkap, 24/07/2023): If we can know the value of the comparand at compile time, then we just place it there.
 				// Otherwise, we need to reference a variable
-				generate_expr(expr, base_register + 1);
-				comparison_index = add_expr(
-					{.type = e_expr_cmp_var_reg, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register + 1}}
-				);
+				generate_expr(for_expr, base_register + 1);
+				{
+					e_expr expr = adjust_expr_based_on_size(e_expr_cmp_var_reg_8, for_expr->type_node->ntype.size_in_bytes);
+					comparison_index = add_expr(
+						{.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register + 1}}
+					);
+				}
 
 				// @Note(tkap, 24/07/2023): Go to end of loop. We don't yet know to which instruction we have to jump, hence the -1
 				jump_index = add_expr({.type = e_expr_jump_greater_or_equal, .a = {.val_s64 = -1}});
@@ -339,7 +356,7 @@ func void generate_statement(s_node* node, int base_register)
 
 
 			// @Note(tkap, 24/07/2023): Increment loop variable, go back to compare
-			int inc_loop_index = add_expr({.type = e_expr_var_to_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
+			int inc_loop_index = add_expr({.type = e_expr_var_to_reg_32, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
 			if(nfor.reverse)
 			{
 				add_expr({.type = e_expr_reg_dec, .a = {.val_s64 = base_register}});
@@ -349,7 +366,7 @@ func void generate_statement(s_node* node, int base_register)
 				add_expr({.type = e_expr_reg_inc, .a = {.val_s64 = base_register}});
 			}
 
-			add_expr({.type = e_expr_reg_to_var, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register}});
+			add_expr({.type = e_expr_reg_to_var_32, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register}});
 			int temp_index = add_expr({.type = e_expr_jump, .a = {.val_s64 = comparison_index}});
 
 			foreach(break_index_i, break_index, g_code_gen_data.break_indices)
@@ -443,7 +460,9 @@ func void generate_statement(s_node* node, int base_register)
 		{
 			generate_expr_address(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_reg_to_var_from_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+
+			e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_from_reg_8, node->arithmetic.left->type_node->ntype.size_in_bytes);
+			add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
 		} break;
 
 		case e_node_plus_equals:
@@ -460,7 +479,8 @@ func void generate_statement(s_node* node, int base_register)
 
 				default:
 				{
-					add_expr({.type = e_expr_add_reg_to_var, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
+					e_expr expr = adjust_expr_based_on_size(e_expr_add_reg_to_var_8, node->arithmetic.left->type_node->ntype.size_in_bytes);
+					add_expr({.type = expr, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
 				} break;
 			}
 		} break;
@@ -485,10 +505,18 @@ func void generate_statement(s_node* node, int base_register)
 
 		case e_node_times_equals:
 		{
-			add_expr({.type = e_expr_var_to_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->arithmetic.left->stack_offset}});
+			{
+				e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_8, node->arithmetic.left->type_node->ntype.size_in_bytes);
+				add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->arithmetic.left->stack_offset}});
+			}
+
 			generate_expr(node->arithmetic.right, base_register + 1);
 			add_expr({.type = e_expr_multiply_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
-			add_expr({.type = e_expr_reg_to_var, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
+
+			{
+				e_expr expr = adjust_expr_based_on_size(e_expr_reg_to_var_8, node->arithmetic.left->type_node->ntype.size_in_bytes);
+				add_expr({.type = expr, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
+			}
 		} break;
 
 		case e_node_break:
@@ -603,4 +631,60 @@ func void generate_code(s_node* ast)
 func int add_expr(s_expr expr)
 {
 	return g_exprs.add(expr);
+}
+
+func e_expr adjust_expr_based_on_size(e_expr type, int size)
+{
+	int extra = 0;
+	if(size == 1) {}
+	else if(size == 2) { extra = 1; }
+	else if(size == 4) { extra = 2; }
+	else if(size == 8) { extra = 3; }
+	invalid_else;
+
+	switch(type)
+	{
+		case e_expr_var_to_reg_8:
+		case e_expr_var_to_reg_16:
+		case e_expr_var_to_reg_32:
+		case e_expr_var_to_reg_64:
+		{
+			return (e_expr)(e_expr_var_to_reg_8 + extra);
+		} break;
+
+		case e_expr_reg_to_var_8:
+		case e_expr_reg_to_var_16:
+		case e_expr_reg_to_var_32:
+		case e_expr_reg_to_var_64:
+		{
+			return (e_expr)(e_expr_reg_to_var_8 + extra);
+		} break;
+
+		case e_expr_cmp_var_reg_8:
+		case e_expr_cmp_var_reg_16:
+		case e_expr_cmp_var_reg_32:
+		case e_expr_cmp_var_reg_64:
+		{
+			return (e_expr)(e_expr_cmp_var_reg_8 + extra);
+		} break;
+
+		case e_expr_add_reg_to_var_8:
+		case e_expr_add_reg_to_var_16:
+		case e_expr_add_reg_to_var_32:
+		case e_expr_add_reg_to_var_64:
+		{
+			return (e_expr)(e_expr_add_reg_to_var_8 + extra);
+		} break;
+
+		case e_expr_reg_to_var_from_reg_8:
+		case e_expr_reg_to_var_from_reg_16:
+		case e_expr_reg_to_var_from_reg_32:
+		case e_expr_reg_to_var_from_reg_64:
+		{
+			return (e_expr)(e_expr_reg_to_var_from_reg_8 + extra);
+		} break;
+
+		invalid_default_case;
+	}
+	return (e_expr)0;
 }

@@ -326,7 +326,7 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 		{
 			type_check_expr(node->nfor.expr, file, reporter, null);
 			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args + func_decl_or_struct->func_decl.bytes_used_by_local_variables;
-			func_decl_or_struct->func_decl.bytes_used_by_local_variables += 8; // @Fixme(tkap, 31/07/2023): just size of int?? not sure
+			func_decl_or_struct->func_decl.bytes_used_by_local_variables += 4; // @Fixme(tkap, 31/07/2023): just size of int?? not sure
 
 			s_node new_node = zero;
 			new_node.type = e_node_var_decl;
@@ -434,7 +434,7 @@ func b8 type_check(s_node* ast, char* file, b8 print_errors)
 		type.type = e_node_type;
 		type.ntype.name.from_cstr("int");
 		type.ntype.id = g_type_check_data.next_type_id++;
-		type.ntype.size_in_bytes = 8;
+		type.ntype.size_in_bytes = 4;
 		g_type_check_data.types.add(type);
 	}
 
@@ -443,7 +443,7 @@ func b8 type_check(s_node* ast, char* file, b8 print_errors)
 		type.type = e_node_type;
 		type.ntype.name.from_cstr("char");
 		type.ntype.id = g_type_check_data.next_type_id++;
-		type.ntype.size_in_bytes = 8;
+		type.ntype.size_in_bytes = 1;
 		g_type_check_data.types.add(type);
 	}
 
@@ -452,7 +452,7 @@ func b8 type_check(s_node* ast, char* file, b8 print_errors)
 		type.type = e_node_type;
 		type.ntype.name.from_cstr("bool");
 		type.ntype.id = g_type_check_data.next_type_id++;
-		type.ntype.size_in_bytes = 8;
+		type.ntype.size_in_bytes = 1;
 		g_type_check_data.types.add(type);
 	}
 
@@ -460,7 +460,7 @@ func b8 type_check(s_node* ast, char* file, b8 print_errors)
 		s_node type = zero;
 		type.type = e_node_type;
 		type.ntype.name.from_cstr("u8");
-		type.ntype.size_in_bytes = 8;
+		type.ntype.size_in_bytes = 1;
 		type.ntype.id = g_type_check_data.next_type_id++;
 		g_type_check_data.types.add(type);
 	}
@@ -469,7 +469,7 @@ func b8 type_check(s_node* ast, char* file, b8 print_errors)
 		s_node type = zero;
 		type.type = e_node_type;
 		type.ntype.name.from_cstr("float");
-		type.ntype.size_in_bytes = 8;
+		type.ntype.size_in_bytes = 4;
 		type.ntype.id = g_type_check_data.next_type_id++;
 		g_type_check_data.types.add(type);
 	}

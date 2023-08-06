@@ -68,6 +68,7 @@ enum e_flag
 	e_flag_lesser,
 };
 
+// @Note(tkap, 06/08/2023): Keep these in order (e_expr_var_to_reg_16 has to come right after e_expr_var_to_reg_8, etc)
 enum e_expr
 {
 	e_expr_invalid,
@@ -76,11 +77,23 @@ enum e_expr
 	e_expr_immediate_to_var,
 	e_expr_immediate_to_reg,
 	e_expr_immediate_float_to_reg,
-	e_expr_var_to_reg,
+	e_expr_var_to_reg_8,
+	e_expr_var_to_reg_16,
+	e_expr_var_to_reg_32,
+	e_expr_var_to_reg_64,
+	e_expr_reg_to_var_8,
+	e_expr_reg_to_var_16,
+	e_expr_reg_to_var_32,
+	e_expr_reg_to_var_64,
 	e_expr_var_to_reg_float,
-	e_expr_reg_to_var,
-	e_expr_reg_to_var_from_reg,
-	e_expr_cmp_var_reg,
+	e_expr_reg_to_var_from_reg_8,
+	e_expr_reg_to_var_from_reg_16,
+	e_expr_reg_to_var_from_reg_32,
+	e_expr_reg_to_var_from_reg_64,
+	e_expr_cmp_var_reg_8,
+	e_expr_cmp_var_reg_16,
+	e_expr_cmp_var_reg_32,
+	e_expr_cmp_var_reg_64,
 	e_expr_cmp_var_immediate,
 	e_expr_cmp_reg_reg,
 	e_expr_cmp_reg_reg_float,
@@ -97,7 +110,10 @@ enum e_expr
 	e_expr_multiply_reg_reg,
 	e_expr_multiply_reg_reg_float,
 	e_expr_multiply_reg_var,
-	e_expr_add_reg_to_var,
+	e_expr_add_reg_to_var_8,
+	e_expr_add_reg_to_var_16,
+	e_expr_add_reg_to_var_32,
+	e_expr_add_reg_to_var_64,
 	e_expr_add_reg_to_var_float,
 	e_expr_sub_reg_from_var,
 	e_expr_sub_reg_from_var_float,
@@ -123,6 +139,9 @@ enum e_expr
 union s_val
 {
 	float val_float;
+	s8 val_s8;
+	s16 val_s16;
+	s32 val_s32;
 	s64 val_s64;
 	void* val_ptr;
 };
@@ -132,6 +151,7 @@ struct s_gen_data
 {
 	b8 need_compare;
 	int members;
+	s_carray<int, 16> sizes;
 	e_node comparison;
 };
 
@@ -147,3 +167,4 @@ struct s_expr
 func int add_expr(s_expr expr);
 func void generate_code(s_node* ast);
 func s64 get_var_id(s_node* node);
+func e_expr adjust_expr_based_on_size(e_expr type, int size);
