@@ -28,9 +28,24 @@ external_func void SetTargetFPS(int) "raylib.dll";
 external_func s_v2 GetMousePosition() "raylib.dll";
 external_func s_v2 IsMouseButtonPressed(int) "raylib.dll";
 
+func s_v2 v2_sub(s_v2 a, s_v2 b)
+{
+	s_v2 c;
+	c.x = a.x - b.x;
+	c.y = a.y - b.y;
+	return c;
+}
+
 func float v2_length(s_v2 v)
 {
 	return sqrtf(v.x * v.x + v.y * v.y);
+}
+
+func float v2_distance(s_v2 a, s_v2 b)
+{
+	s_v2 c = v2_sub(a, b);
+	float result = v2_length(c);
+	return result;
 }
 
 func s_v2 v2_normalized(s_v2 v)
@@ -55,8 +70,8 @@ func int main()
 	int proj_active;
 	s_v2 proj;
 	s_v2 proj_size;
-	proj_size.x = 32.0;
-	proj_size.y = 32.0;
+	proj_size.x = 16.0;
+	proj_size.y = 16.0;
 	s_v2 proj_dir;
 
 	s_color c;
@@ -75,14 +90,14 @@ func int main()
 
 	s_v2 pos;
 	s_v2 vel;
-	float speed = 7.0;
+	float speed = 1.0;
 	float proj_speed = 5.0;
 
 	s_v2 player_size;
 	player_size.x = 16.0;
 	player_size.y = 40.0;
 
-	for 100000
+	for 1000000
 	{
 		if WindowShouldClose() == 1
 		{
@@ -104,18 +119,16 @@ func int main()
 		}
 
 		vel.x += dir * speed;
-		vel.y += 0.05;
+		vel.y += 0.1;
 
 		if IsKeyPressed(32)
 		{
-			vel.y = -5.0;
+			vel.y = -4.0;
 		}
 
 		if IsMouseButtonPressed(0)
 		{
-			s_v2 foo;
-			foo.x = mouse.x;
-			foo.y = mouse.y;
+			s_v2 foo = mouse;
 			foo.x -= pos.x;
 			foo.y -= pos.y;
 			proj_dir = v2_normalized(foo);
@@ -129,12 +142,68 @@ func int main()
 		proj.x += proj_dir.x * proj_speed;
 		proj.y += proj_dir.y * proj_speed;
 
-		if pos.y > cast float wh - player_size.y
+		if pos.x + player_size.x > cast float ww
+		{
+			pos.x = cast float ww - player_size.x;
+		}
+		if pos.x < 0.0
+		{
+			pos.x = 0.0;
+		}
+		if pos.y + player_size.y > cast float wh
 		{
 			pos.y = cast float wh - player_size.y;
+			vel.y = 0.0;
+		}
+		if pos.y < 0.0
+		{
+			pos.y = 0.0;
+			vel.y = 0.0;
 		}
 
-		vel.x = 0.0;
+		int do_explosion = 0;
+		if proj.x > cast float ww
+		{
+			if proj_active
+			{
+				do_explosion = 1;
+			}
+		}
+
+		if proj.x < 0.0
+		{
+			if proj_active
+			{
+				do_explosion = 1;
+			}
+		}
+		if proj.y > cast float wh
+		{
+			if proj_active
+			{
+				do_explosion = 1;
+			}
+		}
+		if proj.y < 0.0
+		{
+			if proj_active
+			{
+				do_explosion = 1;
+			}
+		}
+
+		if do_explosion
+		{
+			s_v2 temp = v2_sub(proj, pos);
+			s_v2 dir = v2_normalized(temp);
+			float dist = v2_distance(proj, pos);
+			float mag = 400.0 / dist;
+			vel.x = dir.x * mag;
+			vel.y = dir.y * mag;
+			proj_active = 0;
+		}
+
+		vel.x *= 0.8;
 
 		DrawRectangle(cast int pos.x, cast int pos.y, cast int player_size.x, cast int player_size.y, red);
 		if proj_active
@@ -143,6 +212,7 @@ func int main()
 		}
 
 		EndDrawing();
+
 	}
 
 	CloseWindow();

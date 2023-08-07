@@ -217,6 +217,7 @@ func void type_check_expr(s_node* node, char* file, s_error_reporter* reporter, 
 		} break;
 
 		case e_node_greater_than:
+		case e_node_less_than:
 		{
 			type_check_expr(node->arithmetic.left, file, reporter, null);
 			type_check_expr(node->arithmetic.right, file, reporter, null);

@@ -1,0 +1,11 @@
+
+
+func int add(int a)
+{
+	return a + 5;
+}
+
+func int main()
+{
+	return add(6) + add(7) * add(8);
+}

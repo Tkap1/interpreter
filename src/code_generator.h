@@ -126,13 +126,16 @@ enum e_expr
 	e_expr_add_reg_to_var_float,
 	e_expr_sub_reg_from_var,
 	e_expr_sub_reg_from_var_float,
-	e_expr_reg_mod_reg,
 	e_expr_divide_reg_reg_8,
 	e_expr_divide_reg_reg_16,
 	e_expr_divide_reg_reg_32,
 	e_expr_divide_reg_reg_64,
 	e_expr_divide_reg_reg_float_32,
 	e_expr_divide_reg_reg_float_64,
+	e_expr_mod_reg_reg_8,
+	e_expr_mod_reg_reg_16,
+	e_expr_mod_reg_reg_32,
+	e_expr_mod_reg_reg_64,
 	e_expr_add_reg_reg_8,
 	e_expr_add_reg_reg_16,
 	e_expr_add_reg_reg_32,
@@ -156,6 +159,7 @@ enum e_expr
 	e_expr_reg_to_address,
 	e_expr_reg_float_to_int,
 	e_expr_reg_int_to_float,
+	e_expr_reg_to_reg,
 };
 
 
@@ -192,3 +196,4 @@ func int add_expr(s_expr expr);
 func void generate_code(s_node* ast);
 func s64 get_var_id(s_node* node);
 func e_expr adjust_expr_based_on_type_and_size(e_expr type, s_node* node);
+func s_gen_data do_arithmetic(s_node* node, int base_register, e_expr expr_type);

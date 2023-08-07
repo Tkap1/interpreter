@@ -49,7 +49,7 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 		case e_node_func_call:
 		{
 			result.register_index_where_result_went = e_register_eax;
-			int i = 0;
+			int arg_i = 0;
 			if(node->type_node->type == e_node_struct)
 			{
 				result.members = node->type_node->nstruct.member_count;
@@ -57,18 +57,19 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 
 			for_node(expr, node->func_call.args)
 			{
-				s_gen_data temp_data = generate_expr(expr, base_register + i);
+				s_gen_data temp_data = generate_expr(expr, base_register + arg_i);
+				int temp_reg = temp_data.register_index_where_result_went;
 				// result.members = temp_data.members;
 				for(int j = 0; j < temp_data.members; j++)
 				{
-					add_expr({.type = e_expr_push_reg, .a = {.val_s64 = base_register + i + j}, .b = {.val_s64 = get_size(temp_data.nodes[j])}});
+					add_expr({.type = e_expr_push_reg, .a = {.val_s64 = temp_reg + j}, .b = {.val_s64 = get_size(temp_data.nodes[j])}});
 				}
-				i += temp_data.members;
+				arg_i += temp_data.members;
 			}
 			if(node->func_node->func_decl.external)
 			{
 				// @TODO(tkap, 06/08/2023): Could there be a problem when functions return structs and use more than 1 register??
-				add_expr({.type = e_expr_call_external, .a = {.val_s64 = node->func_node->func_decl.id}, .b = {.val_s64 = base_register}});
+				add_expr({.type = e_expr_call_external, .a = {.val_s64 = node->func_node->func_decl.id}});
 			}
 			else
 			{
@@ -84,46 +85,32 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 
 		case e_node_add:
 		{
-			generate_expr(node->arithmetic.left, base_register);
-			generate_expr(node->arithmetic.right, base_register + 1);
-
-			e_expr expr = adjust_expr_based_on_type_and_size(e_expr_add_reg_reg_8, node->arithmetic.left);
-			add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+			s_gen_data data = do_arithmetic(node, base_register, e_expr_add_reg_reg_8);
+			result.register_index_where_result_went = data.register_index_where_result_went;
 		} break;
 
 		case e_node_subtract:
 		{
-			generate_expr(node->arithmetic.left, base_register);
-			generate_expr(node->arithmetic.right, base_register + 1);
-
-			e_expr expr = adjust_expr_based_on_type_and_size(e_expr_sub_reg_reg_8, node->arithmetic.left);
-			add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+			s_gen_data data = do_arithmetic(node, base_register, e_expr_sub_reg_reg_8);
+			result.register_index_where_result_went = data.register_index_where_result_went;
 		} break;
 
 		case e_node_multiply:
 		{
-			generate_expr(node->arithmetic.left, base_register);
-			generate_expr(node->arithmetic.right, base_register + 1);
-
-			e_expr expr = adjust_expr_based_on_type_and_size(e_expr_multiply_reg_reg_8, node->arithmetic.left);
-			add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
-
+			s_gen_data data = do_arithmetic(node, base_register, e_expr_multiply_reg_reg_8);
+			result.register_index_where_result_went = data.register_index_where_result_went;
 		} break;
 
 		case e_node_divide:
 		{
-			generate_expr(node->arithmetic.left, base_register);
-			generate_expr(node->arithmetic.right, base_register + 1);
-
-			e_expr expr = adjust_expr_based_on_type_and_size(e_expr_divide_reg_reg_8, node->arithmetic.left);
-			add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+			s_gen_data data = do_arithmetic(node, base_register, e_expr_divide_reg_reg_8);
+			result.register_index_where_result_went = data.register_index_where_result_went;
 		} break;
 
 		case e_node_mod:
 		{
-			generate_expr(node->arithmetic.left, base_register);
-			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_reg_mod_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+			s_gen_data data = do_arithmetic(node, base_register, e_expr_mod_reg_reg_8);
+			result.register_index_where_result_went = data.register_index_where_result_went;
 		} break;
 
 		case e_node_integer:
@@ -161,14 +148,39 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 		{
 			result.comparison = e_node_equals;
 			result.need_compare = false;
-			generate_expr(node->arithmetic.left, base_register);
-			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_cmp_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+			s_gen_data data = generate_expr(node->arithmetic.left, base_register);
+			int temp_reg = data.register_index_where_result_went;
+
+			add_expr({.type = e_expr_push_reg, .a = {.val_s64 = temp_reg}, .b = {.val_s64 = 8}});
+			data = generate_expr(node->arithmetic.right, base_register);
+			int where_to_pop = data.register_index_where_result_went + data.members;
+			add_expr({.type = e_expr_pop_reg, .a = {.val_s64 = where_to_pop}});
+			add_expr({.type = e_expr_cmp_reg_reg, .a = {.val_s64 = where_to_pop}, .b = {.val_s64 = data.register_index_where_result_went}});
 		} break;
 
 		case e_node_greater_than:
 		{
 			result.comparison = e_node_greater_than;
+			result.need_compare = false;
+			generate_expr(node->arithmetic.left, base_register);
+			generate_expr(node->arithmetic.right, base_register + 1);
+			switch(node->arithmetic.left->type_node->ntype.id)
+			{
+				case e_type_float:
+				{
+					add_expr({.type = e_expr_cmp_reg_reg_float, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+				} break;
+
+				default:
+				{
+					add_expr({.type = e_expr_cmp_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+				} break;
+			}
+		} break;
+
+		case e_node_less_than:
+		{
+			result.comparison = e_node_less_than;
 			result.need_compare = false;
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
@@ -280,21 +292,22 @@ func void generate_statement(s_node* node, int base_register)
 		{
 			if(node->var_decl.val)
 			{
-				generate_expr(node->var_decl.val, base_register);
+				s_gen_data data = generate_expr(node->var_decl.val, base_register);
+				int temp_reg = data.register_index_where_result_went;
 				if(node->type_node->type == e_node_struct)
 				{
 					int i = 0;
 					for_node(member, node->type_node->nstruct.members)
 					{
 						e_expr expr = adjust_expr_based_on_type_and_size(e_expr_reg_to_var_8, member);
-						add_expr({.type = expr, .a = {.val_s64 = node->stack_offset + member->stack_offset}, .b = {.val_s64 = base_register + i}});
+						add_expr({.type = expr, .a = {.val_s64 = node->stack_offset + member->stack_offset}, .b = {.val_s64 = temp_reg + i}});
 						i += 1;
 					}
 				}
 				else
 				{
 					e_expr expr = adjust_expr_based_on_type_and_size(e_expr_reg_to_var_8, node);
-					add_expr({.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register}});
+					add_expr({.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = temp_reg}});
 				}
 			}
 			else
@@ -331,12 +344,12 @@ func void generate_statement(s_node* node, int base_register)
 			if(nfor.reverse)
 			{
 				comparison_index = g_exprs.count;
-				generate_expr(for_expr, base_register + 1);
-				add_expr({.type = e_expr_reg_dec, .a = {.val_s64 = base_register + 1}});
+				s_gen_data data = generate_expr(for_expr, base_register + 1);
+				add_expr({.type = e_expr_reg_dec, .a = {.val_s64 = data.register_index_where_result_went}});
 
 				{
 					e_expr expr = adjust_expr_based_on_type_and_size(e_expr_reg_to_var_8, for_expr);
-					add_expr({.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register + 1}});
+					add_expr({.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = data.register_index_where_result_went}});
 				}
 
 				add_expr(
@@ -353,11 +366,11 @@ func void generate_statement(s_node* node, int base_register)
 				// @TODO(tkap, 24/07/2023): If we can know the value of the comparand at compile time, then we just place it there.
 				// Otherwise, we need to reference a variable
 				comparison_index = g_exprs.count;
-				generate_expr(for_expr, base_register + 1);
+				s_gen_data data = generate_expr(for_expr, base_register + 1);
 				{
 					e_expr expr = adjust_expr_based_on_type_and_size(e_expr_cmp_var_reg_8, for_expr);
 					add_expr(
-						{.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register + 1}}
+						{.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = data.register_index_where_result_went}}
 					);
 				}
 
@@ -408,24 +421,25 @@ func void generate_statement(s_node* node, int base_register)
 
 		case e_node_if:
 		{
-			s_gen_data gen_data = generate_expr(node->nif.expr, base_register);
+			s_gen_data data = generate_expr(node->nif.expr, base_register);
+			int temp_reg = data.register_index_where_result_went;
 			int jump_index = 0;
-			if(gen_data.need_compare)
+			if(data.need_compare)
 			{
 				switch(node->nif.expr->type_node->ntype.id)
 				{
 					case e_type_float:
 					{
-						add_expr({.type = e_expr_cmp_reg_immediate_float, .a = {.val_s64 = base_register}, .b = {.val_float = 0.0f}});
+						add_expr({.type = e_expr_cmp_reg_immediate_float, .a = {.val_s64 = temp_reg}, .b = {.val_float = 0.0f}});
 					} break;
 
 					default:
 					{
-						add_expr({.type = e_expr_cmp_reg_immediate, .a = {.val_s64 = base_register}, .b = {.val_s64 = 0}});
+						add_expr({.type = e_expr_cmp_reg_immediate, .a = {.val_s64 = temp_reg}, .b = {.val_s64 = 0}});
 					} break;
 				}
 			}
-			switch(gen_data.comparison)
+			switch(data.comparison)
 			{
 				case e_node_equals:
 				{
@@ -440,6 +454,11 @@ func void generate_statement(s_node* node, int base_register)
 				case e_node_greater_than:
 				{
 					jump_index = add_expr({.type = e_expr_jump_less_or_equal, .a = {.val_s64 = -1}});
+				} break;
+
+				case e_node_less_than:
+				{
+					jump_index = add_expr({.type = e_expr_jump_greater_or_equal, .a = {.val_s64 = -1}});
 				} break;
 
 				default:
@@ -487,38 +506,40 @@ func void generate_statement(s_node* node, int base_register)
 
 		case e_node_plus_equals:
 		{
-			generate_expr(node->arithmetic.right, base_register);
+			s_gen_data data = generate_expr(node->arithmetic.right, base_register);
+			int temp_reg = data.register_index_where_result_went;
 
 			// @TODO(tkap, 04/08/2023): Need to do this for other operations
 			switch(node->arithmetic.right->type_node->ntype.id)
 			{
 				case e_type_float:
 				{
-					add_expr({.type = e_expr_add_reg_to_var_float, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
+					add_expr({.type = e_expr_add_reg_to_var_float, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = temp_reg}});
 				} break;
 
 				default:
 				{
 					e_expr expr = adjust_expr_based_on_type_and_size(e_expr_add_reg_to_var_8, node->arithmetic.left);
-					add_expr({.type = expr, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
+					add_expr({.type = expr, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = temp_reg}});
 				} break;
 			}
 		} break;
 
 		case e_node_minus_equals:
 		{
-			generate_expr(node->arithmetic.right, base_register);
+			s_gen_data data = generate_expr(node->arithmetic.right, base_register);
+			int temp_reg = data.register_index_where_result_went;
 
 			switch(node->arithmetic.right->type_node->ntype.id)
 			{
 				case e_type_float:
 				{
-					add_expr({.type = e_expr_sub_reg_from_var_float, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
+					add_expr({.type = e_expr_sub_reg_from_var_float, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = temp_reg}});
 				} break;
 
 				default:
 				{
-					add_expr({.type = e_expr_sub_reg_from_var, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
+					add_expr({.type = e_expr_sub_reg_from_var, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = temp_reg}});
 				} break;
 			}
 		} break;
@@ -528,17 +549,22 @@ func void generate_statement(s_node* node, int base_register)
 			{
 				e_expr expr = adjust_expr_based_on_type_and_size(e_expr_var_to_reg_8, node->arithmetic.left);
 				add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->arithmetic.left->stack_offset}});
+				add_expr({.type = e_expr_push_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = 8}});
 			}
 
+			int where_to_pop;
 			{
-				generate_expr(node->arithmetic.right, base_register + 1);
+				s_gen_data data = generate_expr(node->arithmetic.right, base_register + 1);
+				int temp_reg = data.register_index_where_result_went;
+				where_to_pop = temp_reg + data.members;
+				add_expr({.type = e_expr_pop_reg, .a = {.val_s64 = where_to_pop}});
 				e_expr expr = adjust_expr_based_on_type_and_size(e_expr_multiply_reg_reg_8, node->arithmetic.left);
-				add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+				add_expr({.type = expr, .a = {.val_s64 = where_to_pop}, .b = {.val_s64 = temp_reg}});
 			}
 
 			{
 				e_expr expr = adjust_expr_based_on_type_and_size(e_expr_reg_to_var_8, node->arithmetic.left);
-				add_expr({.type = expr, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = base_register}});
+				add_expr({.type = expr, .a = {.val_s64 = node->arithmetic.left->stack_offset}, .b = {.val_s64 = where_to_pop}});
 			}
 		} break;
 
@@ -779,6 +805,11 @@ func e_expr adjust_expr_based_on_type_and_size(e_expr type, s_node* node)
 			return (e_expr)(e_expr_divide_reg_reg_float_32 + extra);
 		} break;
 
+		case e_expr_mod_reg_reg_8:
+		{
+			return (e_expr)(e_expr_mod_reg_reg_8 + extra);
+		} break;
+
 		case e_expr_reg_to_var_float_32:
 		{
 			return (e_expr)(e_expr_reg_to_var_float_32 + extra);
@@ -807,4 +838,28 @@ func e_expr adjust_expr_based_on_type_and_size(e_expr type, s_node* node)
 		invalid_default_case;
 	}
 	return (e_expr)0;
+}
+
+func s_gen_data do_arithmetic(s_node* node, int base_register, e_expr expr_type)
+{
+	s_gen_data result = zero;
+
+	s_gen_data data = generate_expr(node->arithmetic.left, base_register);
+	int temp_reg = data.register_index_where_result_went;
+	add_expr({.type = e_expr_push_reg, .a = {.val_s64 = temp_reg}, .b = {.val_s64 = 8}});
+	data = generate_expr(node->arithmetic.right, base_register);
+	int where_to_pop = data.register_index_where_result_went + data.members;
+	add_expr({.type = e_expr_pop_reg, .a = {.val_s64 = where_to_pop}});
+
+	{
+		e_expr expr = adjust_expr_based_on_type_and_size(expr_type, node->arithmetic.left);
+		add_expr({.type = expr, .a = {.val_s64 = where_to_pop}, .b = {.val_s64 = data.register_index_where_result_went}});
+	}
+
+	add_expr({.type = e_expr_reg_to_reg, .a = {.val_s64 = temp_reg}, .b = {.val_s64 = where_to_pop}});
+
+	result = data;
+	result.register_index_where_result_went = temp_reg;
+
+	return result;
 }
