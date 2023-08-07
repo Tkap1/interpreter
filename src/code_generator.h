@@ -93,6 +93,8 @@ enum e_expr
 	e_expr_reg_to_var_from_reg_16,
 	e_expr_reg_to_var_from_reg_32,
 	e_expr_reg_to_var_from_reg_64,
+	e_expr_reg_to_var_from_reg_float_32,
+	e_expr_reg_to_var_from_reg_float_64,
 	e_expr_cmp_var_reg_8,
 	e_expr_cmp_var_reg_16,
 	e_expr_cmp_var_reg_32,
@@ -154,7 +156,7 @@ struct s_gen_data
 {
 	b8 need_compare;
 	int members;
-	s_carray<int, 16> sizes;
+	s_carray<s_node*, 16> nodes;
 	e_node comparison;
 };
 
@@ -170,4 +172,4 @@ struct s_expr
 func int add_expr(s_expr expr);
 func void generate_code(s_node* ast);
 func s64 get_var_id(s_node* node);
-func e_expr adjust_expr_based_on_size(e_expr type, int size);
+func e_expr adjust_expr_based_on_type_and_size(e_expr type, s_node* node);

@@ -5,8 +5,6 @@ struct s_v2
 	float y;
 }
 
-external_func float sqrtf(float) "msvcrt.dll";
-
 func s_v2 func_a(s_v2 v)
 {
 	return v;

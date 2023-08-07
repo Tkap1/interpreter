@@ -1,8 +1,8 @@
 
 #define for_node(name, base) for(s_node* name = (base); (name); name = name->next)
 
-#define m_verbose 1
-#define m_show_asm 1
+// #define m_verbose 1
+// #define m_show_asm 1
 
 #ifdef m_verbose
 #define dprint(...) printf(__VA_ARGS__)
