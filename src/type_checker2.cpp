@@ -372,6 +372,8 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 			{
 				type_check_expr(node->nreturn.expr, file, reporter, null);
 			}
+			node->nreturn.how_many_bytes_to_decrease_stack_pointer =
+				func_decl_or_struct->func_decl.bytes_used_by_local_variables + func_decl_or_struct->func_decl.bytes_used_by_args;
 		} break;
 
 		case e_node_break:

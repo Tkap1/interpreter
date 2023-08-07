@@ -168,6 +168,7 @@ struct s_node
 
 		struct
 		{
+			int how_many_bytes_to_decrease_stack_pointer;
 			s_node* expr;
 		} nreturn;
 

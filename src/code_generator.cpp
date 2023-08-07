@@ -344,6 +344,7 @@ func void generate_statement(s_node* node, int base_register)
 
 			if(nfor.reverse)
 			{
+				comparison_index = g_exprs.count;
 				generate_expr(for_expr, base_register + 1);
 				add_expr({.type = e_expr_reg_dec, .a = {.val_s64 = base_register + 1}});
 
@@ -352,7 +353,7 @@ func void generate_statement(s_node* node, int base_register)
 					add_expr({.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register + 1}});
 				}
 
-				comparison_index = add_expr(
+				add_expr(
 					{.type = e_expr_cmp_var_immediate, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = 0}}
 				);
 
@@ -365,10 +366,11 @@ func void generate_statement(s_node* node, int base_register)
 
 				// @TODO(tkap, 24/07/2023): If we can know the value of the comparand at compile time, then we just place it there.
 				// Otherwise, we need to reference a variable
+				comparison_index = g_exprs.count;
 				generate_expr(for_expr, base_register + 1);
 				{
 					e_expr expr = adjust_expr_based_on_type_and_size(e_expr_cmp_var_reg_8, for_expr);
-					comparison_index = add_expr(
+					add_expr(
 						{.type = expr, .a = {.val_s64 = node->stack_offset}, .b = {.val_s64 = base_register + 1}}
 					);
 				}
@@ -479,6 +481,7 @@ func void generate_statement(s_node* node, int base_register)
 				// generate_expr(node->nreturn.expr, base_register);
 				generate_expr(node->nreturn.expr, e_register_eax);
 			}
+			add_expr({.type = e_expr_add_stack_pointer, .a = {.val_s64 = -node->nreturn.how_many_bytes_to_decrease_stack_pointer}});
 			add_expr({.type = e_expr_return});
 		} break;
 
@@ -648,7 +651,6 @@ func void generate_code(s_node* ast)
 					{
 						g_exprs[0].a.val_s64 = func_decl->id;
 					}
-
 
 					generate_statement(func_decl->body, e_register_eax);
 					add_expr({.type = e_expr_return});

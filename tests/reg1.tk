@@ -1,0 +1,31 @@
+
+// We used to make for loops jump back to the comparison instruction instead instead of the instruction that executes the expression.
+// If the result of the expression landed on a register than then will be used for a return value, we will lose the
+// value of the expression. The solution is to jump back to the expression (the 10 in this case) time through the loop.
+// It also wouldn't work with a function that doesn't always return the same, like "for func_that_returns_1_more_every_time_its_called()"
+
+struct s_v2
+{
+	float x;
+	float y;
+}
+
+func s_v2 func_a()
+{
+	int a;
+	int b;
+	int c;
+	s_v2 result;
+	return result;
+}
+
+func int main()
+{
+	int result = 0;
+	for 10
+	{
+		func_a();
+		result += 1;
+	}
+	return result;
+}
