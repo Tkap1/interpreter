@@ -1,0 +1,23 @@
+
+struct s_v2
+{
+	float x;
+	float y;
+}
+
+external_func float sqrtf(float) "msvcrt.dll";
+
+func s_v2 func_a(s_v2 v)
+{
+	return v;
+}
+
+func int main()
+{
+	s_v2 v;
+	v.x = 1.0;
+	v = func_a(v);
+	int result = cast int v.x;
+	return result;
+}
+

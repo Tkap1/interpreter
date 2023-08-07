@@ -26,3 +26,6 @@ we probably want assert that things of type e_node_type don't have a type_node s
 
 if whatever > int - float FAILS!!
 	we do float float subtraction, which is wrong because one of the args is int!! we need to first convert the int to a float?
+
+
+figure out why v2_normalized fails. Pretty sure we are reading register or variable as int when we want float!

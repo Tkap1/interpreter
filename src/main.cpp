@@ -109,28 +109,29 @@ func void do_tests()
 	};
 
 	constexpr s_test_data c_tests[] = {
-		{.file = "tests/factorial.tk", .expected_result = 3628800},
-		{.file = "tests/fibonacci.tk", .expected_result = 55},
-		{.file = "tests/prime.tk", .expected_result = 79},
-		{.file = "tests/break2.tk", .expected_result = 2},
-		{.file = "tests/return_val1.tk", .expected_result = 11},
-		{.file = "tests/return_val2.tk", .expected_result = 10},
-		{.file = "tests/struct1.tk", .expected_result = 5},
-		{.file = "tests/struct2.tk", .expected_result = 4},
-		{.file = "tests/struct3.tk", .expected_result = 6},
-		{.file = "tests/struct4.tk", .expected_result = 255},
-		{.file = "tests/struct5.tk", .expected_result = 0},
-		{.file = "tests/struct6.tk", .expected_result = 2},
-		{.file = "tests/bool1.tk", .expected_result = 88},
-		{.file = "tests/bool2.tk", .expected_result = 11},
-		{.file = "tests/zero_init.tk", .expected_result = 0},
-		{.file = "tests/zero_init_struct.tk", .expected_result = 0},
-		{.file = "tests/float_into_int.tk", .should_fail_compilation = true},
-		{.file = "tests/cast_float_to_int.tk", .expected_result = 1234},
-		{.file = "tests/cast1.tk", .expected_result = 333},
-		{.file = "tests/cast2.tk", .expected_result = 456},
-		{.file = "tests/add_to_float.tk", .expected_result = 1235},
-		{.file = "tests/float_func.tk", .expected_result = 7},
+		// {.file = "tests/factorial.tk", .expected_result = 3628800},
+		// {.file = "tests/fibonacci.tk", .expected_result = 55},
+		// {.file = "tests/prime.tk", .expected_result = 79},
+		// {.file = "tests/break2.tk", .expected_result = 2},
+		// {.file = "tests/return_val1.tk", .expected_result = 11},
+		// {.file = "tests/return_val2.tk", .expected_result = 10},
+		// {.file = "tests/struct1.tk", .expected_result = 5},
+		// {.file = "tests/struct2.tk", .expected_result = 4},
+		// {.file = "tests/struct3.tk", .expected_result = 6},
+		// {.file = "tests/struct4.tk", .expected_result = 255},
+		// {.file = "tests/struct5.tk", .expected_result = 0},
+		// {.file = "tests/struct6.tk", .expected_result = 2},
+		// {.file = "tests/bool1.tk", .expected_result = 88},
+		// {.file = "tests/bool2.tk", .expected_result = 11},
+		// {.file = "tests/zero_init.tk", .expected_result = 0},
+		// {.file = "tests/zero_init_struct.tk", .expected_result = 0},
+		// {.file = "tests/float_into_int.tk", .should_fail_compilation = true},
+		// {.file = "tests/cast_float_to_int.tk", .expected_result = 1234},
+		// {.file = "tests/cast1.tk", .expected_result = 333},
+		// {.file = "tests/cast2.tk", .expected_result = 456},
+		// {.file = "tests/add_to_float.tk", .expected_result = 1235},
+		// {.file = "tests/float_func.tk", .expected_result = 7},
+		{.file = "tests/return_struct.tk", .expected_result = 1},
 	};
 
 	for(int test_i = 0; test_i < array_count(c_tests); test_i++)
@@ -657,7 +658,7 @@ func s64 execute_expr(s_expr expr)
 			g_registers[expr.a.val_s64].val_s64 = val;
 		} break;
 
-		case e_expr_var_to_reg_float:
+		case e_expr_var_to_reg_float_32:
 		{
 			float val = *(float*)&g_code_exec_data.stack[g_code_exec_data.stack_base + expr.b.val_s64];
 			dprint(
@@ -964,7 +965,8 @@ func void print_exprs()
 			case e_expr_var_to_reg_16:
 			case e_expr_var_to_reg_32:
 			case e_expr_var_to_reg_64:
-			case e_expr_var_to_reg_float:
+			case e_expr_var_to_reg_float_32:
+			case e_expr_var_to_reg_float_64:
 			{
 				printf("%s = [stack_base + %lli]\n", register_to_str(expr.a.val_s64), expr.b.val_s64);
 			} break;

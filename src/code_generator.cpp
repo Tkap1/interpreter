@@ -281,7 +281,8 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 			{
 				case e_type_float:
 				{
-					add_expr({.type = e_expr_var_to_reg_float, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
+					e_expr expr = adjust_expr_based_on_size(e_expr_var_to_reg_float_32, get_size(node));
+					add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->stack_offset}});
 				} break;
 
 				default:
@@ -700,6 +701,22 @@ func e_expr adjust_expr_based_on_size(e_expr type, int size)
 		case e_expr_reg_to_var_64:
 		{
 			return (e_expr)(e_expr_reg_to_var_8 + extra);
+		} break;
+
+		case e_expr_var_to_reg_float_32:
+		case e_expr_var_to_reg_float_64:
+		{
+			if(size == 4) { return e_expr_var_to_reg_float_32; }
+			else if(size == 8) { return e_expr_var_to_reg_float_64; }
+			invalid_else;
+		} break;
+
+		case e_expr_reg_to_var_float_32:
+		case e_expr_reg_to_var_float_64:
+		{
+			if(size == 4) { return e_expr_reg_to_var_float_32; }
+			else if(size == 8) { return e_expr_reg_to_var_float_64; }
+			invalid_else;
 		} break;
 
 		case e_expr_cmp_var_reg_8:
