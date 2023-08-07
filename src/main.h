@@ -1,8 +1,8 @@
 
 #define for_node(name, base) for(s_node* name = (base); (name); name = name->next)
 
-#define m_verbose 1
-#define m_show_asm 1
+// #define m_verbose 1
+// #define m_show_asm 1
 
 #ifdef m_verbose
 #define dprint(...) printf(__VA_ARGS__)
@@ -32,6 +32,7 @@ struct s_code_exec_data
 	s64 stack_pointer;
 	s64 stack_base;
 	u8 stack[8192];
+	s_sarray<s64, 128> stack_base_stack;
 };
 
 

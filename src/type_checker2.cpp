@@ -294,7 +294,8 @@ func void type_check_statement(s_node* node, char* file, s_error_reporter* repor
 			{
 				type_check_expr(node->var_decl.val, file, reporter, null);
 			}
-			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args + func_decl_or_struct->func_decl.bytes_used_by_local_variables;
+			// node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_args + func_decl_or_struct->func_decl.bytes_used_by_local_variables;
+			node->stack_offset = func_decl_or_struct->func_decl.bytes_used_by_local_variables;
 			func_decl_or_struct->func_decl.bytes_used_by_local_variables += get_size(node);
 
 			add_var(*node);

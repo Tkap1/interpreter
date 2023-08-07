@@ -112,8 +112,12 @@ enum e_expr
 	e_expr_jump_equal,
 	e_expr_reg_inc,
 	e_expr_reg_dec,
-	e_expr_multiply_reg_reg,
-	e_expr_multiply_reg_reg_float,
+	e_expr_multiply_reg_reg_8,
+	e_expr_multiply_reg_reg_16,
+	e_expr_multiply_reg_reg_32,
+	e_expr_multiply_reg_reg_64,
+	e_expr_multiply_reg_reg_float_32,
+	e_expr_multiply_reg_reg_float_64,
 	e_expr_multiply_reg_var,
 	e_expr_add_reg_to_var_8,
 	e_expr_add_reg_to_var_16,
@@ -123,10 +127,24 @@ enum e_expr
 	e_expr_sub_reg_from_var,
 	e_expr_sub_reg_from_var_float,
 	e_expr_reg_mod_reg,
-	e_expr_divide_reg_reg,
-	e_expr_add_reg_reg,
-	e_expr_sub_reg_reg,
-	e_expr_sub_reg_reg_float,
+	e_expr_divide_reg_reg_8,
+	e_expr_divide_reg_reg_16,
+	e_expr_divide_reg_reg_32,
+	e_expr_divide_reg_reg_64,
+	e_expr_divide_reg_reg_float_32,
+	e_expr_divide_reg_reg_float_64,
+	e_expr_add_reg_reg_8,
+	e_expr_add_reg_reg_16,
+	e_expr_add_reg_reg_32,
+	e_expr_add_reg_reg_64,
+	e_expr_add_reg_reg_float_32,
+	e_expr_add_reg_reg_float_64,
+	e_expr_sub_reg_reg_8,
+	e_expr_sub_reg_reg_16,
+	e_expr_sub_reg_reg_32,
+	e_expr_sub_reg_reg_64,
+	e_expr_sub_reg_reg_float_32,
+	e_expr_sub_reg_reg_float_64,
 	e_expr_return,
 	e_expr_call,
 	e_expr_call_external,
@@ -154,6 +172,7 @@ union s_val
 
 struct s_gen_data
 {
+	int register_index_where_result_went;
 	b8 need_compare;
 	int members;
 	s_carray<s_node*, 16> nodes;

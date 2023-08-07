@@ -109,30 +109,31 @@ func void do_tests()
 	};
 
 	constexpr s_test_data c_tests[] = {
-		// {.file = "tests/factorial.tk", .expected_result = 3628800},
-		// {.file = "tests/fibonacci.tk", .expected_result = 55},
-		// {.file = "tests/prime.tk", .expected_result = 79},
-		// {.file = "tests/break2.tk", .expected_result = 2},
-		// {.file = "tests/return_val1.tk", .expected_result = 11},
-		// {.file = "tests/return_val2.tk", .expected_result = 10},
-		// {.file = "tests/struct1.tk", .expected_result = 5},
-		// {.file = "tests/struct2.tk", .expected_result = 4},
-		// {.file = "tests/struct3.tk", .expected_result = 6},
-		// {.file = "tests/struct4.tk", .expected_result = 255},
-		// {.file = "tests/struct5.tk", .expected_result = 0},
-		// {.file = "tests/struct6.tk", .expected_result = 2},
-		// {.file = "tests/bool1.tk", .expected_result = 88},
-		// {.file = "tests/bool2.tk", .expected_result = 11},
-		// {.file = "tests/zero_init.tk", .expected_result = 0},
-		// {.file = "tests/zero_init_struct.tk", .expected_result = 0},
-		// {.file = "tests/float_into_int.tk", .should_fail_compilation = true},
-		// {.file = "tests/cast_float_to_int.tk", .expected_result = 1234},
-		// {.file = "tests/cast1.tk", .expected_result = 333},
-		// {.file = "tests/cast2.tk", .expected_result = 456},
-		// {.file = "tests/add_to_float.tk", .expected_result = 1235},
-		// {.file = "tests/float_func.tk", .expected_result = 7},
-		// {.file = "tests/return_struct.tk", .expected_result = 1},
+		{.file = "tests/factorial.tk", .expected_result = 3628800},
+		{.file = "tests/fibonacci.tk", .expected_result = 55},
+		{.file = "tests/prime.tk", .expected_result = 79},
+		{.file = "tests/break2.tk", .expected_result = 2},
+		{.file = "tests/return_val1.tk", .expected_result = 11},
+		{.file = "tests/return_val2.tk", .expected_result = 10},
+		{.file = "tests/struct1.tk", .expected_result = 5},
+		{.file = "tests/struct2.tk", .expected_result = 4},
+		{.file = "tests/struct3.tk", .expected_result = 6},
+		{.file = "tests/struct4.tk", .expected_result = 255},
+		{.file = "tests/struct5.tk", .expected_result = 0},
+		{.file = "tests/struct6.tk", .expected_result = 2},
+		{.file = "tests/bool1.tk", .expected_result = 88},
+		{.file = "tests/bool2.tk", .expected_result = 11},
+		{.file = "tests/zero_init.tk", .expected_result = 0},
+		{.file = "tests/zero_init_struct.tk", .expected_result = 0},
+		{.file = "tests/float_into_int.tk", .should_fail_compilation = true},
+		{.file = "tests/cast_float_to_int.tk", .expected_result = 1234},
+		{.file = "tests/cast1.tk", .expected_result = 333},
+		{.file = "tests/cast2.tk", .expected_result = 456},
+		{.file = "tests/add_to_float.tk", .expected_result = 1235},
+		{.file = "tests/float_func.tk", .expected_result = 7},
+		{.file = "tests/return_struct.tk", .expected_result = 1},
 		{.file = "tests/reg1.tk", .expected_result = 10},
+		{.file = "tests/float_expression.tk", .expected_result = 29},
 	};
 
 	for(int test_i = 0; test_i < array_count(c_tests); test_i++)
@@ -233,6 +234,7 @@ func s64 execute_expr(s_expr expr)
 
 		case e_expr_call:
 		{
+			g_code_exec_data.stack_base_stack.add(g_code_exec_data.stack_base);
 			g_call_stack.add(result);
 			dprint("call %lli\n", expr.a.val_s64);
 			result = g_func_first_expr_index[expr.a.val_s64];
@@ -460,6 +462,7 @@ func s64 execute_expr(s_expr expr)
 			}
 			else
 			{
+				g_code_exec_data.stack_base = g_code_exec_data.stack_base_stack.pop();
 				result = g_call_stack.pop();
 			}
 			dprint("return\n");
@@ -669,7 +672,16 @@ func s64 execute_expr(s_expr expr)
 			g_registers[expr.a.val_s64].val_float = val;
 		} break;
 
-		case e_expr_add_reg_reg:
+		case e_expr_add_reg_reg_32:
+		{
+			dprint(
+				"add %s(%i) %s(%i)\n",
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s32, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s32
+			);
+			g_registers[expr.a.val_s64].val_s32 += g_registers[expr.b.val_s64].val_s32;
+		} break;
+
+		case e_expr_add_reg_reg_64:
 		{
 			dprint(
 				"add %s(%lli) %s(%lli)\n",
@@ -678,7 +690,25 @@ func s64 execute_expr(s_expr expr)
 			g_registers[expr.a.val_s64].val_s64 += g_registers[expr.b.val_s64].val_s64;
 		} break;
 
-		case e_expr_sub_reg_reg:
+		case e_expr_add_reg_reg_float_32:
+		{
+			dprint(
+				"add %s(%f) %s(%f)\n",
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_float, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_float
+			);
+			g_registers[expr.a.val_s64].val_float += g_registers[expr.b.val_s64].val_float;
+		} break;
+
+		case e_expr_sub_reg_reg_32:
+		{
+			dprint(
+				"sub %s(%i) %s(%i)\n",
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s32, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s32
+			);
+			g_registers[expr.a.val_s64].val_s32 -= g_registers[expr.b.val_s64].val_s32;
+		} break;
+
+		case e_expr_sub_reg_reg_64:
 		{
 			dprint(
 				"sub %s(%lli) %s(%lli)\n",
@@ -687,10 +717,10 @@ func s64 execute_expr(s_expr expr)
 			g_registers[expr.a.val_s64].val_s64 -= g_registers[expr.b.val_s64].val_s64;
 		} break;
 
-		case e_expr_sub_reg_reg_float:
+		case e_expr_sub_reg_reg_float_32:
 		{
 			dprint(
-				"subf %s(%f) %s(%f)\n",
+				"sub %s(%f) %s(%f)\n",
 				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_float, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_float
 			);
 			g_registers[expr.a.val_s64].val_float -= g_registers[expr.b.val_s64].val_float;
@@ -746,13 +776,31 @@ func s64 execute_expr(s_expr expr)
 			*val -= g_registers[expr.b.val_s64].val_float;
 		} break;
 
-		case e_expr_divide_reg_reg:
+		case e_expr_divide_reg_reg_32:
+		{
+			dprint(
+				"div %s(%i) %s(%i)\n",
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s32, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s32
+			);
+			g_registers[expr.a.val_s64].val_s64 /= g_registers[expr.b.val_s64].val_s64;
+		} break;
+
+		case e_expr_divide_reg_reg_64:
 		{
 			dprint(
 				"div %s(%lli) %s(%lli)\n",
 				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s64, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s64
 			);
 			g_registers[expr.a.val_s64].val_s64 /= g_registers[expr.b.val_s64].val_s64;
+		} break;
+
+		case e_expr_divide_reg_reg_float_32:
+		{
+			dprint(
+				"div %s(%f) %s(%f)\n",
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_float, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_float
+			);
+			g_registers[expr.a.val_s64].val_float /= g_registers[expr.b.val_s64].val_float;
 		} break;
 
 		case e_expr_reg_mod_reg:
@@ -775,7 +823,16 @@ func s64 execute_expr(s_expr expr)
 			g_registers[expr.a.val_s64].val_s64 *= var.val.val_s64;
 		} break;
 
-		case e_expr_multiply_reg_reg:
+		case e_expr_multiply_reg_reg_32:
+		{
+			dprint(
+				"imul2 %s(%i), %s(%i)\n",
+				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_s32, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_s32
+			);
+			g_registers[expr.a.val_s64].val_s32 *= g_registers[expr.b.val_s64].val_s32;
+		} break;
+
+		case e_expr_multiply_reg_reg_64:
 		{
 			dprint(
 				"imul2 %s(%lli), %s(%lli)\n",
@@ -784,10 +841,10 @@ func s64 execute_expr(s_expr expr)
 			g_registers[expr.a.val_s64].val_s64 *= g_registers[expr.b.val_s64].val_s64;
 		} break;
 
-		case e_expr_multiply_reg_reg_float:
+		case e_expr_multiply_reg_reg_float_32:
 		{
 			dprint(
-				"imul2f %s(%f), %s(%f)\n",
+				"mul2 %s(%f), %s(%f)\n",
 				register_to_str(expr.a.val_s64), g_registers[expr.a.val_s64].val_float, register_to_str(expr.b.val_s64), g_registers[expr.b.val_s64].val_float
 			);
 			g_registers[expr.a.val_s64].val_float *= g_registers[expr.b.val_s64].val_float;
@@ -1062,12 +1119,16 @@ func void print_exprs()
 				printf("cmpf %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
 
-			case e_expr_multiply_reg_reg:
+			case e_expr_multiply_reg_reg_8:
+			case e_expr_multiply_reg_reg_16:
+			case e_expr_multiply_reg_reg_32:
+			case e_expr_multiply_reg_reg_64:
 			{
 				printf("mul %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
 
-			case e_expr_multiply_reg_reg_float:
+			case e_expr_multiply_reg_reg_float_32:
+			case e_expr_multiply_reg_reg_float_64:
 			{
 				printf("mulf %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
@@ -1085,7 +1146,12 @@ func void print_exprs()
 				printf("cmp [stack_base + %lli] %s\n", expr.a.val_s64, register_to_str(expr.b.val_s64));
 			} break;
 
-			case e_expr_divide_reg_reg:
+			case e_expr_divide_reg_reg_8:
+			case e_expr_divide_reg_reg_16:
+			case e_expr_divide_reg_reg_32:
+			case e_expr_divide_reg_reg_64:
+			case e_expr_divide_reg_reg_float_32:
+			case e_expr_divide_reg_reg_float_64:
 			{
 				printf("div %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
@@ -1095,17 +1161,26 @@ func void print_exprs()
 				printf("mod %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
 
-			case e_expr_sub_reg_reg:
+			case e_expr_sub_reg_reg_8:
+			case e_expr_sub_reg_reg_16:
+			case e_expr_sub_reg_reg_32:
+			case e_expr_sub_reg_reg_64:
 			{
 				printf("sub %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
 
-			case e_expr_sub_reg_reg_float:
+			case e_expr_sub_reg_reg_float_32:
+			case e_expr_sub_reg_reg_float_64:
 			{
 				printf("subf %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;
 
-			case e_expr_add_reg_reg:
+			case e_expr_add_reg_reg_8:
+			case e_expr_add_reg_reg_16:
+			case e_expr_add_reg_reg_32:
+			case e_expr_add_reg_reg_64:
+			case e_expr_add_reg_reg_float_32:
+			case e_expr_add_reg_reg_float_64:
 			{
 				printf("add %s %s\n", register_to_str(expr.a.val_s64), register_to_str(expr.b.val_s64));
 			} break;

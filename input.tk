@@ -76,6 +76,7 @@ func int main()
 	s_v2 pos;
 	s_v2 vel;
 	float speed = 7.0;
+	float proj_speed = 5.0;
 
 	s_v2 player_size;
 	player_size.x = 16.0;
@@ -112,13 +113,21 @@ func int main()
 
 		if IsMouseButtonPressed(0)
 		{
-			proj_dir = v2_normalized(mouse - pos);
+			s_v2 foo;
+			foo.x = mouse.x;
+			foo.y = mouse.y;
+			foo.x -= pos.x;
+			foo.y -= pos.y;
+			proj_dir = v2_normalized(foo);
 			proj_active = 1;
 			proj = pos;
 		}
 
 		pos.x += vel.x;
 		pos.y += vel.y;
+
+		proj.x += proj_dir.x * proj_speed;
+		proj.y += proj_dir.y * proj_speed;
 
 		if pos.y > cast float wh - player_size.y
 		{

@@ -4,6 +4,7 @@ func s_gen_data generate_expr_address(s_node* node, int base_register)
 	assert(base_register < e_register_count);
 
 	s_gen_data result = zero;
+	result.register_index_where_result_went = base_register;
 	result.members = 1;
 	result.nodes[0] = node;
 
@@ -38,6 +39,7 @@ func s_gen_data generate_expr_address(s_node* node, int base_register)
 func s_gen_data generate_expr(s_node* node, int base_register)
 {
 	s_gen_data result = zero;
+	result.register_index_where_result_went = base_register;
 	result.members = 1;
 	result.need_compare = true;
 	result.nodes[0] = node;
@@ -46,8 +48,8 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 	{
 		case e_node_func_call:
 		{
+			result.register_index_where_result_went = e_register_eax;
 			int i = 0;
-
 			if(node->type_node->type == e_node_struct)
 			{
 				result.members = node->type_node->nstruct.member_count;
@@ -84,7 +86,9 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 		{
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_add_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+
+			e_expr expr = adjust_expr_based_on_type_and_size(e_expr_add_reg_reg_8, node->arithmetic.left);
+			add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
 		} break;
 
 		case e_node_subtract:
@@ -92,18 +96,8 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
 
-			switch(node->arithmetic.right->type_node->ntype.id)
-			{
-				case e_type_float:
-				{
-					add_expr({.type = e_expr_sub_reg_reg_float, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
-				} break;
-
-				default:
-				{
-					add_expr({.type = e_expr_sub_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
-				} break;
-			}
+			e_expr expr = adjust_expr_based_on_type_and_size(e_expr_sub_reg_reg_8, node->arithmetic.left);
+			add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
 		} break;
 
 		case e_node_multiply:
@@ -111,18 +105,8 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
 
-			switch(node->arithmetic.right->type_node->ntype.id)
-			{
-				case e_type_float:
-				{
-					add_expr({.type = e_expr_multiply_reg_reg_float, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
-				} break;
-
-				default:
-				{
-					add_expr({.type = e_expr_multiply_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
-				} break;
-			}
+			e_expr expr = adjust_expr_based_on_type_and_size(e_expr_multiply_reg_reg_8, node->arithmetic.left);
+			add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
 
 		} break;
 
@@ -130,7 +114,9 @@ func s_gen_data generate_expr(s_node* node, int base_register)
 		{
 			generate_expr(node->arithmetic.left, base_register);
 			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_divide_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+
+			e_expr expr = adjust_expr_based_on_type_and_size(e_expr_divide_reg_reg_8, node->arithmetic.left);
+			add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
 		} break;
 
 		case e_node_mod:
@@ -488,12 +474,13 @@ func void generate_statement(s_node* node, int base_register)
 		case e_node_assign:
 		{
 			s_gen_data data_a = generate_expr(node->arithmetic.right, base_register);
-			s_gen_data data_b = generate_expr_address(node->arithmetic.left, base_register + data_a.members);
+			int temp_reg = data_a.register_index_where_result_went;
+			s_gen_data data_b = generate_expr_address(node->arithmetic.left, temp_reg + data_a.members);
 
 			for(int i = 0; i < data_b.members; i++)
 			{
 				e_expr expr = adjust_expr_based_on_type_and_size(e_expr_reg_to_var_from_reg_8, data_b.nodes[i]);
-				add_expr({.type = expr, .a = {.val_s64 = base_register + data_a.members + i}, .b = {.val_s64 = base_register + i}});
+				add_expr({.type = expr, .a = {.val_s64 = temp_reg + data_a.members + i}, .b = {.val_s64 = temp_reg + i}});
 			}
 
 		} break;
@@ -543,8 +530,11 @@ func void generate_statement(s_node* node, int base_register)
 				add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = node->arithmetic.left->stack_offset}});
 			}
 
-			generate_expr(node->arithmetic.right, base_register + 1);
-			add_expr({.type = e_expr_multiply_reg_reg, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+			{
+				generate_expr(node->arithmetic.right, base_register + 1);
+				e_expr expr = adjust_expr_based_on_type_and_size(e_expr_multiply_reg_reg_8, node->arithmetic.left);
+				add_expr({.type = expr, .a = {.val_s64 = base_register}, .b = {.val_s64 = base_register + 1}});
+			}
 
 			{
 				e_expr expr = adjust_expr_based_on_type_and_size(e_expr_reg_to_var_8, node->arithmetic.left);
@@ -697,6 +687,26 @@ func e_expr adjust_expr_based_on_type_and_size(e_expr type, s_node* node)
 					type = e_expr_reg_to_var_from_reg_float_32;
 				} break;
 
+				case e_expr_add_reg_reg_8:
+				{
+					type = e_expr_add_reg_reg_float_32;
+				} break;
+
+				case e_expr_sub_reg_reg_8:
+				{
+					type = e_expr_sub_reg_reg_float_32;
+				} break;
+
+				case e_expr_multiply_reg_reg_8:
+				{
+					type = e_expr_multiply_reg_reg_float_32;
+				} break;
+
+				case e_expr_divide_reg_reg_8:
+				{
+					type = e_expr_divide_reg_reg_float_32;
+				} break;
+
 				invalid_default_case;
 			}
 
@@ -715,59 +725,81 @@ func e_expr adjust_expr_based_on_type_and_size(e_expr type, s_node* node)
 	switch(type)
 	{
 		case e_expr_var_to_reg_8:
-		case e_expr_var_to_reg_16:
-		case e_expr_var_to_reg_32:
-		case e_expr_var_to_reg_64:
 		{
 			return (e_expr)(e_expr_var_to_reg_8 + extra);
 		} break;
 
 		case e_expr_reg_to_var_8:
-		case e_expr_reg_to_var_16:
-		case e_expr_reg_to_var_32:
-		case e_expr_reg_to_var_64:
 		{
 			return (e_expr)(e_expr_reg_to_var_8 + extra);
 		} break;
 
 		case e_expr_var_to_reg_float_32:
-		case e_expr_var_to_reg_float_64:
 		{
 			return (e_expr)(e_expr_var_to_reg_float_32 + extra);
 		} break;
 
+		case e_expr_add_reg_reg_8:
+		{
+			return (e_expr)(e_expr_add_reg_reg_8 + extra);
+		} break;
+
+		case e_expr_add_reg_reg_float_32:
+		{
+			return (e_expr)(e_expr_add_reg_reg_float_32 + extra);
+		} break;
+
+		case e_expr_sub_reg_reg_8:
+		{
+			return (e_expr)(e_expr_sub_reg_reg_8 + extra);
+		} break;
+
+		case e_expr_sub_reg_reg_float_32:
+		{
+			return (e_expr)(e_expr_sub_reg_reg_float_32 + extra);
+		} break;
+
+		case e_expr_multiply_reg_reg_8:
+		{
+			return (e_expr)(e_expr_multiply_reg_reg_8 + extra);
+		} break;
+
+		case e_expr_multiply_reg_reg_float_32:
+		{
+			return (e_expr)(e_expr_multiply_reg_reg_float_32 + extra);
+		} break;
+
+		case e_expr_divide_reg_reg_8:
+		{
+			return (e_expr)(e_expr_divide_reg_reg_8 + extra);
+		} break;
+
+		case e_expr_divide_reg_reg_float_32:
+		{
+			return (e_expr)(e_expr_divide_reg_reg_float_32 + extra);
+		} break;
+
 		case e_expr_reg_to_var_float_32:
-		case e_expr_reg_to_var_float_64:
 		{
 			return (e_expr)(e_expr_reg_to_var_float_32 + extra);
 		} break;
 
 		case e_expr_reg_to_var_from_reg_float_32:
-		case e_expr_reg_to_var_from_reg_float_64:
 		{
 			return (e_expr)(e_expr_reg_to_var_from_reg_float_32 + extra);
 		} break;
 
 		case e_expr_cmp_var_reg_8:
-		case e_expr_cmp_var_reg_16:
-		case e_expr_cmp_var_reg_32:
-		case e_expr_cmp_var_reg_64:
 		{
 			return (e_expr)(e_expr_cmp_var_reg_8 + extra);
 		} break;
 
 		case e_expr_add_reg_to_var_8:
-		case e_expr_add_reg_to_var_16:
-		case e_expr_add_reg_to_var_32:
-		case e_expr_add_reg_to_var_64:
 		{
 			return (e_expr)(e_expr_add_reg_to_var_8 + extra);
 		} break;
 
 		case e_expr_reg_to_var_from_reg_8:
-		case e_expr_reg_to_var_from_reg_16:
-		case e_expr_reg_to_var_from_reg_32:
-		case e_expr_reg_to_var_from_reg_64:
 		{
 			return (e_expr)(e_expr_reg_to_var_from_reg_8 + extra);
 		} break;
